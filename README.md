@@ -1541,11 +1541,7 @@ A implementação deverá seguir aproximadamente esta ordem:
 
 Pasta setup contem os arquivos para criar toda a estrutura
 
-
-
-> **php setup/01-estrutura.php**
-
-
+```text
+php setup/01-estrutura.php**
 ```
-
 ---

@@ -1,0 +1,9 @@
+FROM dunglas/frankenphp:php8.3-alpine
+
+WORKDIR /app
+
+COPY . /app
+
+EXPOSE 80
+
+CMD ["frankenphp", "php-server", "--listen", ":80", "--root", "/app"]
