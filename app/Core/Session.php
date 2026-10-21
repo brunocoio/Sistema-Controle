@@ -42,7 +42,18 @@ final class Session
             'httponly' => true,
             'samesite' => 'Lax',
         ]);
-        if (!session_start()) {
+
+        // O handler de sessão registra a causa técnica no log. Suprima o warning
+        // do PHP aqui para que ele não seja enviado antes dos headers HTTP.
+        set_error_handler(static function (int $severity): bool {
+            return $severity === E_WARNING;
+        });
+        try {
+            $started = session_start();
+        } finally {
+            restore_error_handler();
+        }
+        if (!$started) {
             throw new RuntimeException('Não foi possível iniciar a sessão.');
         }
     }
