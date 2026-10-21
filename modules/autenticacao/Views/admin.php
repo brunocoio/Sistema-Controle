@@ -23,6 +23,11 @@ declare(strict_types=1);
     <p class="eyebrow">ÁREA ADMINISTRATIVA</p>
     <h1>Bem-vindo, <?= $escape($user['name']) ?></h1>
     <p>Esta área está protegida por autenticação e autorização.</p>
+    <section class="admin-card">
+        <h2>Gestão esportiva</h2>
+        <p>Cadastre e mantenha os dados da equipe.</p>
+        <a class="button" href="../admin/atletas.php">Gerenciar atletas <span aria-hidden="true">→</span></a>
+    </section>
 </main>
 </body>
 </html>

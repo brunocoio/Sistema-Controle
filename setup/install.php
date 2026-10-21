@@ -26,7 +26,7 @@ if ($root === false || !is_dir($root)) {
 }
 
 $arguments = array_slice($argv, 1);
-$knownOptions = ['--migrate-local-config', '--migrate-auth', '--create-admin', '--check-db', '--help'];
+$knownOptions = ['--migrate-local-config', '--migrate-auth', '--migrate-athletes', '--create-admin', '--check-db', '--help'];
 foreach ($arguments as $argument) {
     if (!in_array($argument, $knownOptions, true)) {
         fwrite(STDERR, '[ERRO] Opção desconhecida. Consulte --help.' . PHP_EOL);
@@ -38,6 +38,7 @@ if (in_array('--help', $arguments, true)) {
     echo "php setup/install.php                  Prepara a estrutura e os arquivos ausentes\n";
     echo "php setup/install.php --migrate-local-config  Migra configuração local antiga para config/conf.php\n";
     echo "php setup/install.php --migrate-auth    Aplica a migration de autenticação ao banco selecionado\n";
+    echo "php setup/install.php --migrate-athletes Aplica a migration aditiva de atletas ao banco selecionado\n";
     echo "php setup/install.php --create-admin   Cria administrador inicial; requer senha no ambiente\n";
     echo "php setup/install.php --check-db       Testa o banco local com SELECT 1\n";
     exit(0);
@@ -45,7 +46,7 @@ if (in_array('--help', $arguments, true)) {
 
 $directories = [
     'admin', 'app', 'app/Core', 'app/Core/Views', 'app/Core/Views/Layout',
-    'app/Core/Views/Pages', 'app/Core/Views/Pages/Public', 'config', 'modules', 'modules/autenticacao', 'modules/autenticacao/Controllers', 'modules/autenticacao/Views', 'modules/autenticacao/Database', 'modules/autenticacao/Database/migrations',
+    'app/Core/Views/Pages', 'app/Core/Views/Pages/Public', 'config', 'modules', 'modules/autenticacao', 'modules/autenticacao/Controllers', 'modules/autenticacao/Views', 'modules/autenticacao/Database', 'modules/autenticacao/Database/migrations', 'modules/atletas', 'modules/atletas/Controllers', 'modules/atletas/Models', 'modules/atletas/Views', 'modules/atletas/Assets', 'modules/atletas/Database', 'modules/atletas/Database/migrations',
     'assets', 'assets/css', 'assets/js', 'storage', 'storage/logs',
     'storage/uploads', 'storage/cache', 'setup',
 ];
@@ -119,7 +120,7 @@ FLAG_INSTALL_TEMPLATE_0000,
     'Dockerfile.vercel' => <<<'FLAG_INSTALL_TEMPLATE_0001'
 FROM dunglas/frankenphp:php8.3-alpine
 
-RUN install-php-extensions pdo_pgsql
+RUN install-php-extensions pdo_pgsql gd mbstring
 
 WORKDIR /app
 
@@ -189,7 +190,7 @@ return [
         'debug' => false,
     ],
     'assets' => [
-        'version' => '1.0.0',
+        'version' => '1.0.4',
     ],
     'database' => [
         'url' => 'xxx',
@@ -799,6 +800,15 @@ final class Request
             $path = substr($path, strlen($basePath));
         }
 
+        // The homepage is served by index.php, so both / and /index.php
+        // must resolve to the same route in Apache/Laragon and Vercel.
+        if (preg_match('#/index\\.php\\z#i', $path) === 1) {
+            $path = substr($path, 0, -strlen('/index.php'));
+            if ($path === '') {
+                $path = '/';
+            }
+        }
+
         $path = preg_replace('#/+#', '/', $path) ?? '/';
         $path = '/' . trim($path, '/');
         if ($path !== '/') {
@@ -1043,8 +1053,13 @@ final class View
         } elseif (str_starts_with($path, './assets/')) {
             $prefix = './';
             $path = substr($path, 2);
+        } elseif (str_starts_with($path, '../modules/')) {
+            $prefix = '../';
+            $path = substr($path, 3);
         }
-        if (preg_match('#\Aassets/[A-Za-z0-9._/-]+\z#D', $path) !== 1) {
+        $isGlobalAsset = preg_match('#\Aassets/[A-Za-z0-9._/-]+\z#D', $path) === 1;
+        $isModuleAsset = preg_match('#\Amodules/[a-z0-9-]+/Assets/[A-Za-z0-9._/-]+\z#D', $path) === 1;
+        if (!$isGlobalAsset && !$isModuleAsset) {
             throw new RuntimeException('Caminho de recurso local inválido.');
         }
         foreach (explode('/', $path) as $segment) {
@@ -1370,6 +1385,11 @@ declare(strict_types=1);
     <p class="eyebrow">ÁREA ADMINISTRATIVA</p>
     <h1>Bem-vindo, <?= $escape($user['name']) ?></h1>
     <p>Esta área está protegida por autenticação e autorização.</p>
+    <section class="admin-card">
+        <h2>Gestão esportiva</h2>
+        <p>Cadastre e mantenha os dados da equipe.</p>
+        <a class="button" href="../admin/atletas.php">Gerenciar atletas <span aria-hidden="true">→</span></a>
+    </section>
 </main>
 </body>
 </html>
@@ -1414,12 +1434,1338 @@ FLAG_INSTALL_TEMPLATE_0027,
 FLAG_INSTALL_TEMPLATE_0028,
 ];
 
+$templates += [
+    'admin/atletas.php' => <<<'FLAG_SETUP_ATLETAS_ENTRY'
+<?php
+
+declare(strict_types=1);
+
+$config = require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'bootstrap.php';
+require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'modules' . DIRECTORY_SEPARATOR . 'atletas'
+    . DIRECTORY_SEPARATOR . 'Models' . DIRECTORY_SEPARATOR . 'AthleteModel.php';
+require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'modules' . DIRECTORY_SEPARATOR . 'atletas'
+    . DIRECTORY_SEPARATOR . 'Controllers' . DIRECTORY_SEPARATOR . 'AthleteController.php';
+
+(new \Modules\Atletas\Controllers\AthleteController())->handle($config);
+FLAG_SETUP_ATLETAS_ENTRY,
+    'modules/atletas/Models/AthleteModel.php' => <<<'FLAG_SETUP_ATLETAS_MODEL'
+<?php
+
+declare(strict_types=1);
+
+namespace Modules\Atletas\Models;
+
+use App\Core\Database;
+use PDO;
+use RuntimeException;
+use Throwable;
+
+final class AthleteModel
+{
+    public function list(string $search, bool $activeOnly, int $limit, int $offset): array
+    {
+        $statement = Database::connection()->prepare(
+            'SELECT id, nome, apelido, genero, data_nascimento, ativo, (foto IS NOT NULL) AS tem_foto
+             FROM atletas WHERE (:active = FALSE OR ativo = TRUE)
+             AND (:search = \'\' OR nome ILIKE :pattern_name OR apelido ILIKE :pattern_alias)
+             ORDER BY ativo DESC, lower(nome), id LIMIT :limit OFFSET :offset'
+        );
+        $statement->bindValue('active', $activeOnly, PDO::PARAM_BOOL);
+        $statement->bindValue('search', $search, PDO::PARAM_STR);
+        $pattern = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
+        $statement->bindValue('pattern_name', $pattern, PDO::PARAM_STR);
+        $statement->bindValue('pattern_alias', $pattern, PDO::PARAM_STR);
+        $statement->bindValue('limit', $limit, PDO::PARAM_INT);
+        $statement->bindValue('offset', $offset, PDO::PARAM_INT);
+        $statement->execute();
+        return $statement->fetchAll();
+    }
+
+    /** Category/side/position catalog. Each position belongs to exactly one category and side. */
+    public function categoryCatalog(bool $activeOnly = true): array
+    {
+        $statement = Database::connection()->prepare(
+            'SELECT c.id AS categoria_id, c.modalidade, c.genero, c.ativo AS categoria_ativa,
+                    s.id AS side_id, s.codigo AS side_codigo, s.nome AS side_nome,
+                    p.id AS posicao_id, p.nome AS posicao_nome, p.ativo AS posicao_ativa
+             FROM categorias c
+             JOIN categoria_sides s ON s.categoria_id = c.id
+             LEFT JOIN categoria_posicoes p ON p.categoria_id = c.id AND p.side_id = s.id AND p.ativo = TRUE
+             WHERE (:active = FALSE OR c.ativo = TRUE)
+             ORDER BY lower(c.modalidade), c.genero, s.id, lower(p.nome)'
+        );
+        $statement->execute(['active' => $activeOnly]);
+        return $statement->fetchAll();
+    }
+
+    public function assignmentsForAthlete(int $athleteId): array
+    {
+        $statement = Database::connection()->prepare(
+            'SELECT ac.categoria_id, ac.genero, ac.numero_camisa, cp.id AS posicao_id
+             FROM atleta_categorias ac
+             LEFT JOIN atleta_categoria_posicoes acp ON acp.atleta_categoria_id = ac.id
+             LEFT JOIN categoria_posicoes cp ON cp.id = acp.posicao_id AND cp.ativo = TRUE
+             WHERE ac.atleta_id = :athlete ORDER BY ac.categoria_id, cp.id'
+        );
+        $statement->execute(['athlete' => $athleteId]);
+        $assignments = [];
+        foreach ($statement->fetchAll() as $row) {
+            $categoryId = (int) $row['categoria_id'];
+            $assignments[$categoryId] ??= [
+                'genero' => (string) $row['genero'],
+                'numero_camisa' => $row['numero_camisa'] === null ? null : (int) $row['numero_camisa'],
+                'posicoes' => [],
+                'cargos' => [],
+            ];
+            if ($row['posicao_id'] !== null) $assignments[$categoryId]['posicoes'][] = (int) $row['posicao_id'];
+        }
+        return $assignments;
+    }
+
+    public function positionSummary(array $athleteIds): array
+    {
+        if ($athleteIds === []) return [];
+        $params = [];
+        $holders = [];
+        foreach (array_values(array_unique(array_map('intval', $athleteIds))) as $index => $id) {
+            $key = 'athlete' . $index;
+            $holders[] = ':' . $key;
+            $params[$key] = $id;
+        }
+        $sql = 'SELECT ac.atleta_id, ac.categoria_id, c.modalidade, c.genero,
+                       s.codigo AS side_codigo, s.nome AS side_nome,
+                       array_to_string(array_agg(DISTINCT cp.nome ORDER BY cp.nome), chr(44) || chr(32)) AS posicoes
+                FROM atleta_categorias ac
+                JOIN categorias c ON c.id = ac.categoria_id
+                JOIN atleta_categoria_posicoes acp ON acp.atleta_categoria_id = ac.id
+                JOIN categoria_posicoes cp ON cp.categoria_id = ac.categoria_id AND cp.id = acp.posicao_id AND cp.ativo = TRUE
+                JOIN categoria_sides s ON s.categoria_id = c.id AND s.id = cp.side_id
+                WHERE ac.atleta_id IN (' . implode(', ', $holders) . ')
+                GROUP BY ac.atleta_id, ac.categoria_id, c.modalidade, c.genero, s.id, s.codigo, s.nome
+                ORDER BY ac.atleta_id, lower(c.modalidade), c.genero, s.id';
+        $statement = Database::connection()->prepare($sql);
+        $statement->execute($params);
+        $summary = [];
+        foreach ($statement->fetchAll() as $row) $summary[(int) $row['atleta_id']][] = $row;
+        return $summary;
+    }
+
+    public function categorySummary(array $athleteIds): array
+    {
+        if ($athleteIds === []) return [];
+        $params = [];
+        $holders = [];
+        foreach (array_values(array_unique(array_map('intval', $athleteIds))) as $index => $id) {
+            $key = 'athlete' . $index;
+            $holders[] = ':' . $key;
+            $params[$key] = $id;
+        }
+        $sql = 'SELECT membership.atleta_id, c.id AS categoria_id, c.modalidade, c.genero,
+                       ac.numero_camisa,
+                       array_to_string(array_agg(DISTINCT cg.nome ORDER BY cg.nome), chr(44) || chr(32)) AS cargos
+                FROM (
+                    SELECT atleta_id, categoria_id FROM atleta_categorias
+                    UNION
+                    SELECT atleta_id, categoria_id FROM atleta_cargos_por_categoria
+                ) membership
+                JOIN categorias c ON c.id = membership.categoria_id
+                LEFT JOIN atleta_categorias ac ON ac.atleta_id = membership.atleta_id AND ac.categoria_id = membership.categoria_id
+                LEFT JOIN atleta_cargos_por_categoria acc ON acc.atleta_id = membership.atleta_id AND acc.categoria_id = membership.categoria_id
+                LEFT JOIN cargos cg ON cg.id = acc.cargo_id AND cg.ativo = TRUE
+                WHERE membership.atleta_id IN (' . implode(', ', $holders) . ')
+                GROUP BY membership.atleta_id, c.id, c.modalidade, c.genero, ac.numero_camisa
+                ORDER BY membership.atleta_id, lower(c.modalidade), c.genero';
+        $statement = Database::connection()->prepare($sql);
+        $statement->execute($params);
+        $summary = [];
+        foreach ($statement->fetchAll() as $row) $summary[(int) $row['atleta_id']][] = $row;
+        return $summary;
+    }
+
+    public function rolesForAthlete(int $athleteId): array
+    {
+        $statement = Database::connection()->prepare(
+            'SELECT acc.categoria_id, acc.cargo_id
+             FROM atleta_cargos_por_categoria acc
+             JOIN cargos c ON c.id = acc.cargo_id AND c.ativo = TRUE
+             WHERE acc.atleta_id = :athlete ORDER BY acc.categoria_id, lower(c.nome)'
+        );
+        $statement->execute(['athlete' => $athleteId]);
+        $roles = [];
+        foreach ($statement->fetchAll() as $row) $roles[(int) $row['categoria_id']][] = (int) $row['cargo_id'];
+        return $roles;
+    }
+
+    public function roleCatalog(bool $activeOnly = true): array
+    {
+        $statement = Database::connection()->prepare(
+            'SELECT id, nome FROM cargos WHERE (:active = FALSE OR ativo = TRUE) ORDER BY lower(nome), id'
+        );
+        $statement->execute(['active' => $activeOnly]);
+        return $statement->fetchAll();
+    }
+
+    /** Returns unassigned shirt numbers in a category, preserving this athlete's number while editing. */
+    public function availableNumbers(int $categoryId, ?int $athleteId = null): array
+    {
+        $ownFilter = $athleteId === null ? '' : ' AND assigned.atleta_id <> :athlete';
+        $statement = Database::connection()->prepare(
+            'SELECT available.number::integer
+             FROM generate_series(0, 99) AS available(number)
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM atleta_categorias assigned
+                 WHERE assigned.categoria_id = :category
+                   AND assigned.numero_camisa = available.number' . $ownFilter . '
+             ) ORDER BY available.number'
+        );
+        $params = ['category' => $categoryId];
+        if ($athleteId !== null) $params['athlete'] = $athleteId;
+        $statement->execute($params);
+        return array_map('intval', $statement->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    public function find(int $id): ?array
+    {
+        $statement = Database::connection()->prepare('SELECT *, (foto IS NOT NULL) AS tem_foto FROM atletas WHERE id = :id');
+        $statement->execute(['id' => $id]);
+        $row = $statement->fetch();
+        return is_array($row) ? $row : null;
+    }
+
+    public function save(array $data, int $userId, ?string $photoBase64, bool $removePhoto, array $assignments): int
+    {
+        $db = Database::connection();
+        $db->beginTransaction();
+        try {
+            $id = (int) ($data['id'] ?? 0);
+            if ($id > 0) {
+                // Remove category links before changing gender; composite FKs prevent cross-gender playing assignments.
+                $delete = $db->prepare('DELETE FROM atleta_categorias WHERE atleta_id = :id');
+                $delete->execute(['id' => $id]);
+                $delete = $db->prepare('DELETE FROM atleta_cargos_por_categoria WHERE atleta_id = :id');
+                $delete->execute(['id' => $id]);
+                $values = $this->athleteValues($data, $userId);
+                $values['id'] = $id;
+                $photoSql = $photoBase64 !== null ? "decode(:photo, 'base64')" : ($removePhoto ? 'NULL' : 'foto');
+                if ($photoBase64 !== null) $values['photo'] = $photoBase64;
+                $statement = $db->prepare("UPDATE atletas SET nome=:nome, apelido=:apelido, genero=:genero,
+                    data_nascimento=:data_nascimento, celular=:celular, rg=:rg, cpf=:cpf, email=:email,
+                    contato_emergencia_nome=:contato_emergencia_nome, contato_emergencia_celular=:contato_emergencia_celular,
+                    contato_emergencia_parentesco=:contato_emergencia_parentesco, tipo_sanguineo=:tipo_sanguineo,
+                    alergias=:alergias, foto=$photoSql, ativo=:ativo, atualizado_por=:atualizado_por,
+                    atualizado_em=CURRENT_TIMESTAMP WHERE id=:id");
+                $statement->execute($values);
+                if ($statement->rowCount() === 0 && $this->find($id) === null) throw new RuntimeException('Cadastro de atleta não encontrado.');
+            } else {
+                $values = $this->athleteValues($data, $userId);
+                $values['criado_por'] = $userId;
+                $photoSql = $photoBase64 === null ? 'NULL' : "decode(:photo, 'base64')";
+                if ($photoBase64 !== null) $values['photo'] = $photoBase64;
+                $statement = $db->prepare("INSERT INTO atletas (nome, apelido, genero, data_nascimento, celular,
+                    rg, cpf, email, contato_emergencia_nome, contato_emergencia_celular, contato_emergencia_parentesco,
+                    tipo_sanguineo, alergias, foto, ativo, criado_por, atualizado_por)
+                    VALUES (:nome, :apelido, :genero, :data_nascimento, :celular,
+                    :rg, :cpf, :email, :contato_emergencia_nome, :contato_emergencia_celular, :contato_emergencia_parentesco,
+                    :tipo_sanguineo, :alergias, $photoSql, :ativo, :criado_por, :atualizado_por) RETURNING id");
+                $statement->execute($values);
+                $id = (int) $statement->fetchColumn();
+            }
+            $this->replaceAssignments($id, (string) $data['genero'], $assignments);
+            $db->commit();
+            return $id;
+        } catch (Throwable $exception) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $exception;
+        }
+    }
+
+    private function athleteValues(array $data, int $userId): array
+    {
+        return [
+            'nome' => $data['nome'], 'apelido' => $data['apelido'],
+            'genero' => $data['genero'], 'data_nascimento' => $data['data_nascimento'],
+            'celular' => $data['celular'], 'rg' => $data['rg'], 'cpf' => $data['cpf'], 'email' => $data['email'],
+            'contato_emergencia_nome' => $data['contato_emergencia_nome'],
+            'contato_emergencia_celular' => $data['contato_emergencia_celular'],
+            'contato_emergencia_parentesco' => $data['contato_emergencia_parentesco'],
+            'tipo_sanguineo' => $data['tipo_sanguineo'], 'alergias' => $data['alergias'],
+            'ativo' => $data['ativo'], 'atualizado_por' => $userId,
+        ];
+    }
+
+    private function replaceAssignments(int $athleteId, string $gender, array $assignments): void
+    {
+        $db = Database::connection();
+        $categoryQuery = $db->prepare('SELECT id, genero FROM categorias WHERE id = :id AND ativo = TRUE');
+        $insertCategory = $db->prepare('INSERT INTO atleta_categorias (atleta_id, categoria_id, genero, numero_camisa)
+            VALUES (:athlete, :category, :gender, :jersey) RETURNING id');
+        $insertPosition = $db->prepare('INSERT INTO atleta_categoria_posicoes (atleta_categoria_id, categoria_id, posicao_id)
+            SELECT :athlete_category, :category, id FROM categoria_posicoes WHERE categoria_id = :category_check AND id = :position AND ativo = TRUE');
+        $insertRole = $db->prepare('INSERT INTO atleta_cargos_por_categoria (atleta_id, categoria_id, cargo_id)
+            SELECT :athlete, :category, id FROM cargos WHERE id = :cargo AND ativo = TRUE');
+        $playerRoleIds = $db->query("SELECT id FROM cargos WHERE ativo = TRUE AND lower(nome) IN ('atleta', 'jogador', 'jogadora')")
+            ->fetchAll(PDO::FETCH_COLUMN);
+        $playerRoleIds = array_map('intval', $playerRoleIds);
+        foreach ($assignments as $categoryId => $assignment) {
+            $categoryId = (int) $categoryId;
+            $categoryQuery->execute(['id' => $categoryId]);
+            $category = $categoryQuery->fetch();
+            if (!is_array($category)) throw new RuntimeException('Uma categoria escolhida não está disponível.');
+            $jersey = $assignment['numero_camisa'] ?? null;
+            if ($jersey !== null && (!is_int($jersey) || $jersey < 0 || $jersey > 99)) {
+                throw new RuntimeException('Número de camisa inválido para a categoria selecionada.');
+            }
+            $roleIds = array_values(array_unique(array_map('intval', $assignment['cargos'] ?? [])));
+            $positionIds = array_values(array_unique(array_map('intval', $assignment['posicoes'] ?? [])));
+            $isPlayer = $jersey !== null || $positionIds !== [] || array_intersect($roleIds, $playerRoleIds) !== [];
+            $sameGender = (string) $category['genero'] === $gender;
+            if (!$sameGender && $isPlayer) {
+                throw new RuntimeException('Camisa e posições só podem ser atribuídas em uma categoria compatível com o gênero esportivo do atleta. Cargos técnicos podem ser vinculados a qualquer categoria.');
+            }
+            $athleteCategoryId = null;
+            if ($sameGender) {
+                $insertCategory->execute([
+                    'athlete' => $athleteId, 'category' => $categoryId, 'gender' => $category['genero'], 'jersey' => $jersey,
+                ]);
+                $athleteCategoryId = (int) $insertCategory->fetchColumn();
+            }
+            foreach ($roleIds as $roleId) {
+                $insertRole->execute(['athlete' => $athleteId, 'category' => $categoryId, 'cargo' => $roleId]);
+                if ($insertRole->rowCount() !== 1) throw new RuntimeException('Um cargo escolhido não está disponível.');
+            }
+            foreach ($positionIds as $positionId) {
+                if ($athleteCategoryId === null) throw new RuntimeException('Posições exigem uma categoria compatível com o gênero esportivo do atleta.');
+                $insertPosition->execute([
+                    'athlete_category' => $athleteCategoryId, 'category' => $categoryId,
+                    'category_check' => $categoryId, 'position' => $positionId,
+                ]);
+                if ($insertPosition->rowCount() !== 1) throw new RuntimeException('Uma posição escolhida não pertence à categoria correspondente.');
+            }
+        }
+    }
+
+    public function addCategory(string $modality, string $gender): void
+    {
+        $db = Database::connection();
+        $db->beginTransaction();
+        try {
+            $insert = $db->prepare('INSERT INTO categorias (modalidade, genero) VALUES (:name, :gender) ON CONFLICT DO NOTHING RETURNING id');
+            $insert->execute(['name' => $modality, 'gender' => $gender]);
+            $id = $insert->fetchColumn();
+            if ($id === false) throw new RuntimeException('Essa categoria já existe.');
+            $sides = $db->prepare("INSERT INTO categoria_sides (categoria_id, codigo, nome)
+                VALUES (:id_attack, 'ataque', 'Ataque'), (:id_defense, 'defesa', 'Defesa'), (:id_special, 'time_especial', 'Time especial')");
+            $sides->execute(['id_attack' => $id, 'id_defense' => $id, 'id_special' => $id]);
+            $db->commit();
+        } catch (Throwable $exception) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $exception;
+        }
+    }
+
+    public function addPosition(int $categoryId, string $sideCode, string $name): void
+    {
+        $statement = Database::connection()->prepare(
+            'INSERT INTO categoria_posicoes (categoria_id, side_id, nome)
+             SELECT categoria_id, id, :name FROM categoria_sides WHERE categoria_id = :category AND codigo = :side'
+        );
+        $statement->execute(['name' => $name, 'category' => $categoryId, 'side' => $sideCode]);
+        if ($statement->rowCount() !== 1) throw new RuntimeException('Categoria ou side não encontrado.');
+    }
+
+    public function addRole(string $name): void
+    {
+        $statement = Database::connection()->prepare(
+            'INSERT INTO cargos (nome) VALUES (:name) ON CONFLICT DO NOTHING RETURNING id'
+        );
+        $statement->execute(['name' => $name]);
+        if ($statement->fetchColumn() === false) throw new RuntimeException('Esse cargo já está cadastrado.');
+    }
+
+    public function toggle(int $id, int $userId): void
+    {
+        $statement = Database::connection()->prepare('UPDATE atletas SET ativo = NOT ativo, atualizado_por = :user, atualizado_em = CURRENT_TIMESTAMP WHERE id = :id');
+        $statement->execute(['id' => $id, 'user' => $userId]);
+    }
+
+    public function photo(int $id): ?string
+    {
+        $statement = Database::connection()->prepare("SELECT encode(foto, 'base64') FROM atletas WHERE id = :id AND foto IS NOT NULL");
+        $statement->execute(['id' => $id]);
+        $value = $statement->fetchColumn();
+        return is_string($value) ? base64_decode($value, true) ?: null : null;
+    }
+}
+FLAG_SETUP_ATLETAS_MODEL,
+    'modules/atletas/Controllers/AthleteController.php' => <<<'FLAG_SETUP_ATLETAS_CONTROLLER'
+<?php
+
+declare(strict_types=1);
+
+namespace Modules\Atletas\Controllers;
+
+use App\Core\Auth;
+use App\Core\Csrf;
+use App\Core\Session;
+use App\Core\View;
+use Modules\Atletas\Models\AthleteModel;
+use PDOException;
+use RuntimeException;
+use Throwable;
+
+final class AthleteController
+{
+    private const MAX_UPLOAD = 5_242_880;
+    private const BLOOD_TYPES = ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
+    public function handle(array $config): void
+    {
+        header('Cache-Control: no-store, private');
+        try {
+            Session::start();
+            $user = Auth::requireRole('admin');
+            $model = new AthleteModel();
+            $actionValue = $_GET['action'] ?? 'list';
+            $action = is_string($actionValue) ? $actionValue : '';
+            if ($action === 'photo') {
+                $this->photo($model, $this->id($_GET['id'] ?? null));
+                return;
+            }
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $this->post($model, (int) $user['id'], $config);
+                return;
+            }
+            if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+                http_response_code(405);
+                header('Allow: GET, POST');
+                exit('Método não permitido.');
+            }
+            if ($action === 'categories') {
+                $this->categoriesPage($model, $config, null);
+                return;
+            }
+            if ($action === 'new' || $action === 'edit') {
+                $athlete = $action === 'edit' ? $model->find($this->id($_GET['id'] ?? null)) : null;
+                if ($action === 'edit' && $athlete === null) {
+                    http_response_code(404);
+                    exit('Cadastro não encontrado.');
+                }
+                $this->form($config, $athlete, [], null);
+                return;
+            }
+            if ($action !== 'list') {
+                http_response_code(404);
+                exit('Página não encontrada.');
+            }
+            $searchValue = $_GET['q'] ?? '';
+            $search = is_string($searchValue) ? trim($searchValue) : '';
+            $search = mb_substr($search, 0, 100, 'UTF-8');
+            $activeOnly = ($_GET['status'] ?? 'ativos') !== 'todos';
+            $athletes = $model->list($search, $activeOnly, 100, 0);
+            $athleteIds = array_column($athletes, 'id');
+            $positionSummary = $model->positionSummary($athleteIds);
+            $categorySummary = $model->categorySummary($athleteIds);
+            $this->listing($config, $athletes, $search, $activeOnly, $positionSummary, $categorySummary);
+        } catch (Throwable $exception) {
+            if ($exception instanceof PDOException) {
+                error_log('Falha de banco no módulo de atletas: ' . (string) ($exception->errorInfo[0] ?? 'indisponível'));
+                http_response_code(503);
+                exit('Não foi possível carregar o cadastro de atletas neste momento.');
+            }
+            error_log('Falha no módulo de atletas: ' . get_class($exception));
+            http_response_code(503);
+            exit('O módulo de atletas está temporariamente indisponível.');
+        }
+    }
+
+    private function post(AthleteModel $model, int $userId, array $config): void
+    {
+        if (!Csrf::verify($_POST['_csrf'] ?? null)) {
+            http_response_code(400);
+            exit('A sessão do formulário expirou. Atualize a página e tente novamente.');
+        }
+        $actionValue = $_POST['action'] ?? 'save';
+        $action = is_string($actionValue) ? $actionValue : '';
+        if (in_array($action, ['create-category', 'add-position', 'add-role'], true)) {
+            $this->saveCategoryConfiguration($model, $config, $action);
+            return;
+        }
+        if ($action === 'toggle') {
+            $model->toggle($this->id($_POST['id'] ?? null), $userId);
+            $this->redirect('Cadastro atualizado.');
+        }
+        if ($action !== 'save') {
+            http_response_code(400);
+            exit('Ação inválida.');
+        }
+        $data = $this->validate($_POST);
+        $errors = $data['_errors'];
+        unset($data['_errors']);
+        $id = (int) ($data['id'] ?? 0);
+        $removePhoto = ($_POST['remover_foto'] ?? '') === '1';
+        $photo = null;
+        if ($removePhoto && isset($_FILES['foto']) && ($_FILES['foto']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $errors[] = 'Escolha remover a foto atual ou enviar uma nova, não as duas ações.';
+        } elseif (!$removePhoto) {
+            try {
+                $photo = $this->processPhoto($_FILES['foto'] ?? null);
+            } catch (\InvalidArgumentException $exception) {
+                $errors[] = $exception->getMessage();
+            }
+        }
+        if ($errors !== []) {
+            $athlete = $id > 0 ? (new AthleteModel())->find($id) : null;
+            $this->form($config, $athlete, $data, $errors);
+            return;
+        }
+        try {
+            $assignments = $data['categorias'];
+            unset($data['categorias']);
+            $model->save($data, $userId, $photo, $removePhoto, $assignments);
+        } catch (PDOException $exception) {
+            $state = (string) ($exception->errorInfo[0] ?? '');
+            if ($state === '23505') {
+                $athlete = $id > 0 ? $model->find($id) : null;
+                $constraint = (string) ($exception->errorInfo[2] ?? '');
+                $message = match (true) {
+                    str_contains($constraint, 'atletas_cpf_unique') => 'Este CPF já está cadastrado para outro atleta.',
+                    str_contains($constraint, 'atletas_email_unique') => 'Este e-mail já está cadastrado para outro atleta.',
+                    str_contains($constraint, 'atleta_categoria_numero_unique') => 'Este número de camisa já está ocupado nessa categoria. Escolha outro número disponível.',
+                    default => 'Um dado que precisa ser único já está cadastrado. Confira o CPF, e-mail e números de camisa.',
+                };
+                $this->form($config, $athlete, $data + ['categorias' => $assignments], [$message]);
+                return;
+            }
+            error_log('Falha ao salvar atleta: ' . $state);
+            $athlete = $id > 0 ? $model->find($id) : null;
+            $this->form($config, $athlete, $data + ['categorias' => $assignments], ['Não foi possível salvar os dados. Verifique o banco e tente novamente.']);
+            return;
+        } catch (RuntimeException $exception) {
+            $athlete = $id > 0 ? $model->find($id) : null;
+            $this->form($config, $athlete, $data + ['categorias' => $assignments], [$exception->getMessage()]);
+            return;
+        }
+        $this->redirect('Cadastro salvo.');
+    }
+
+    private function validate(array $input): array
+    {
+        $errors = [];
+        $text = static function (string $key, int $max, bool $required = false) use ($input, &$errors): ?string {
+            $rawValue = $input[$key] ?? '';
+            if (!is_string($rawValue) && !is_numeric($rawValue)) {
+                $errors[] = 'Um dos campos contém um valor inválido.';
+                return null;
+            }
+            $value = trim((string) $rawValue);
+            if ($value === '') {
+                if ($required) $errors[] = 'Nome é obrigatório.';
+                return null;
+            }
+            if (mb_strlen($value, 'UTF-8') > $max || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', $value) === 1) {
+                $errors[] = 'Um dos campos de texto ultrapassou o limite ou contém caracteres inválidos.';
+                return null;
+            }
+            return $value;
+        };
+        $idValue = $input['id'] ?? '';
+        if (!is_string($idValue) || ($idValue !== '' && $idValue !== '0' && preg_match('/\A[1-9]\d{0,17}\z/', $idValue) !== 1)) {
+            $errors[] = 'Identificador inválido.';
+            $id = 0;
+        } else {
+            $id = $idValue === '' || $idValue === '0' ? 0 : (int) $idValue;
+        }
+        $birthValue = $input['data_nascimento'] ?? '';
+        $birth = is_string($birthValue) ? trim($birthValue) : '';
+        if (!is_string($birthValue)) $errors[] = 'Data de nascimento inválida.';
+        if ($birth !== '') {
+            $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $birth);
+            if (!$date || $date->format('Y-m-d') !== $birth || $date > new \DateTimeImmutable('today')) $errors[] = 'Data de nascimento inválida.';
+        } else $birth = null;
+        $phone = static function (?string $value, bool $required = false) use (&$errors): ?string {
+            if ($value === null) { if ($required) $errors[] = 'Informe o celular do contato de emergência.'; return null; }
+            if (preg_match('/\A[0-9()+.\s-]{1,30}\z/', $value) !== 1) { $errors[] = 'Celular inválido.'; return null; }
+            $digits = preg_replace('/\D+/', '', $value) ?? '';
+            if (strlen($digits) < 10 || strlen($digits) > 13) { $errors[] = 'Celular deve conter entre 10 e 13 dígitos.'; return null; }
+            return $digits;
+        };
+        $email = strtolower((string) ($text('email', 254) ?? ''));
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) === false) $errors[] = 'E-mail inválido.';
+        $cpfValue = $input['cpf'] ?? '';
+        if (!is_string($cpfValue)) { $errors[] = 'CPF inválido.'; $cpfValue = ''; }
+        $cpf = preg_replace('/\D+/', '', $cpfValue) ?? '';
+        if ($cpf !== '' && !$this->validCpf($cpf)) $errors[] = 'CPF inválido.';
+        $bloodValue = $input['tipo_sanguineo'] ?? '';
+        $blood = is_string($bloodValue) ? $bloodValue : '';
+        if (!in_array($blood, self::BLOOD_TYPES, true)) { $errors[] = 'Tipo sanguíneo inválido.'; $blood = ''; }
+        $genderValue = $input['genero'] ?? '';
+        $gender = is_string($genderValue) ? $genderValue : '';
+        if (!in_array($gender, ['masculino', 'feminino'], true)) { $errors[] = 'Selecione o gênero esportivo do atleta.'; $gender = ''; }
+        $assignments = $this->parseAssignments($input['categorias'] ?? [], $errors);
+        $emergencyName = $text('contato_emergencia_nome', 120);
+        $emergencyCell = $phone($text('contato_emergencia_celular', 30));
+        $emergencyRelation = $text('contato_emergencia_parentesco', 60);
+        if (($emergencyName === null) !== ($emergencyCell === null)
+            || ($emergencyRelation !== null && $emergencyName === null)) {
+            $errors[] = 'Preencha nome e celular do contato de emergência juntos; parentesco requer esses dados.';
+        }
+        return [
+            'id' => $id, 'nome' => $text('nome', 120, true), 'apelido' => $text('apelido', 80),
+            'genero' => $gender, 'data_nascimento' => $birth, 'celular' => $phone($text('celular', 30)),
+            'rg' => $text('rg', 30), 'cpf' => $cpf === '' ? null : $cpf, 'email' => $email === '' ? null : $email,
+            'contato_emergencia_nome' => $emergencyName, 'contato_emergencia_celular' => $emergencyCell,
+            'contato_emergencia_parentesco' => $emergencyRelation, 'tipo_sanguineo' => $blood ?: null,
+            'alergias' => $text('alergias', 2000), 'ativo' => ($_POST['ativo'] ?? '') === '1',
+            'categorias' => $assignments, '_errors' => $errors,
+        ];
+    }
+
+    private function parseAssignments(mixed $input, array &$errors): array
+    {
+        if (!is_array($input)) { $errors[] = 'Seleção de categorias inválida.'; return []; }
+        $assignments = [];
+        foreach ($input as $categoryId => $entry) {
+            if (!is_string((string) $categoryId) || preg_match('/\A[1-9]\d{0,17}\z/', (string) $categoryId) !== 1 || !is_array($entry)) {
+                $errors[] = 'Uma categoria selecionada é inválida.';
+                continue;
+            }
+            $included = ($entry['participa'] ?? '') === '1';
+            $positions = $entry['posicoes'] ?? [];
+            $roles = $entry['cargos'] ?? [];
+            if (!is_array($positions) || !is_array($roles)) { $errors[] = 'Seleção de cargos ou posições inválida.'; continue; }
+            $ids = [];
+            foreach ($positions as $positionId) {
+                if (!is_string($positionId) || preg_match('/\A[1-9]\d{0,17}\z/', $positionId) !== 1) {
+                    $errors[] = 'Uma posição selecionada é inválida.';
+                    continue;
+                }
+                $ids[] = (int) $positionId;
+            }
+            $roleIds = [];
+            foreach ($roles as $roleId) {
+                if (!is_string($roleId) || preg_match('/\A[1-9]\d{0,17}\z/', $roleId) !== 1) {
+                    $errors[] = 'Um cargo selecionado é inválido.';
+                    continue;
+                }
+                $roleIds[] = (int) $roleId;
+            }
+            $jerseyValue = $entry['numero_camisa'] ?? '';
+            if (!is_string($jerseyValue) || ($jerseyValue !== '' && preg_match('/\A(?:0|[1-9]\d?)\z/', $jerseyValue) !== 1)) {
+                $errors[] = 'Número de camisa inválido.';
+                $jersey = null;
+            } else {
+                $jersey = $jerseyValue === '' ? null : (int) $jerseyValue;
+            }
+            if ($included || $ids !== [] || $roleIds !== [] || $jersey !== null) {
+                $assignments[(int) $categoryId] = [
+                    'numero_camisa' => $jersey,
+                    'posicoes' => array_values(array_unique($ids)),
+                    'cargos' => array_values(array_unique($roleIds)),
+                ];
+            }
+        }
+        return $assignments;
+    }
+
+    private function saveCategoryConfiguration(AthleteModel $model, array $config, string $action): void
+    {
+        try {
+            if ($action === 'create-category') {
+                $modality = $_POST['modalidade'] ?? '';
+                $gender = $_POST['genero'] ?? '';
+                if (!is_string($modality) || preg_match('/\A[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}\z/', trim($modality)) !== 1
+                    || !is_string($gender) || !in_array($gender, ['masculino', 'feminino'], true)) {
+                    throw new \InvalidArgumentException('Informe o nome da categoria e o gênero corretamente.');
+                }
+                $model->addCategory(trim($modality), $gender);
+            } elseif ($action === 'add-position') {
+                $categoryId = $this->id($_POST['categoria_id'] ?? null);
+                $side = $_POST['side'] ?? '';
+                $name = $_POST['nome_posicao'] ?? '';
+                if (!is_string($side) || !in_array($side, ['ataque', 'defesa', 'time_especial'], true)
+                    || !is_string($name) || trim($name) === '' || mb_strlen(trim($name), 'UTF-8') > 60
+                    || preg_match('/[\x00-\x1F\x7F]/u', $name) === 1) {
+                    throw new \InvalidArgumentException('Informe um side e uma posição válidos (até 60 caracteres).');
+                }
+                $model->addPosition($categoryId, $side, trim($name));
+            } else {
+                $name = $_POST['nome_cargo'] ?? '';
+                if (!is_string($name) || trim($name) === '' || mb_strlen(trim($name), 'UTF-8') > 60
+                    || preg_match('/[\x00-\x1F\x7F]/u', $name) === 1) {
+                    throw new \InvalidArgumentException('Informe um nome de cargo válido, com até 60 caracteres.');
+                }
+                $model->addRole(trim($name));
+            }
+            $this->redirectCategories('Configuração salva.');
+        } catch (PDOException $exception) {
+            $state = (string) ($exception->errorInfo[0] ?? '');
+            error_log('Falha ao configurar categorias de atletas: ' . $state);
+            $message = $state === '23505' && $action === 'add-position'
+                ? 'Essa posição já está cadastrada nessa categoria.'
+                : 'Não foi possível salvar a configuração.';
+            $this->categoriesPage($model, $config, $message);
+        } catch (\InvalidArgumentException | RuntimeException $exception) {
+            $this->categoriesPage($model, $config, $exception->getMessage());
+        }
+    }
+
+    private function validCpf(string $cpf): bool
+    {
+        if (preg_match('/\A\d{11}\z/', $cpf) !== 1 || preg_match('/\A(\d)\1{10}\z/', $cpf) === 1) return false;
+        for ($digit = 9; $digit < 11; $digit++) {
+            $sum = 0;
+            for ($index = 0; $index < $digit; $index++) $sum += (int) $cpf[$index] * (($digit + 1) - $index);
+            $check = ($sum * 10) % 11;
+            if ($check === 10) $check = 0;
+            if ($check !== (int) $cpf[$digit]) return false;
+        }
+        return true;
+    }
+
+    private function processPhoto(mixed $file): ?string
+    {
+        if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) return null;
+        if (!is_int($file['error'] ?? null) || !is_string($file['tmp_name'] ?? null) || !is_numeric($file['size'] ?? null)
+            || $file['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])
+            || (int) $file['size'] > self::MAX_UPLOAD) throw new \InvalidArgumentException('A foto deve ter no máximo 5 MB.');
+        $bytes = file_get_contents($file['tmp_name']);
+        $info = is_string($bytes) ? @getimagesizefromstring($bytes) : false;
+        $mime = is_array($info) ? (string) ($info['mime'] ?? '') : '';
+        if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true) || !function_exists('imagecreatefromstring')) {
+            throw new \InvalidArgumentException('Envie uma imagem JPEG, PNG ou WebP.');
+        }
+        $width = (int) $info[0]; $height = (int) $info[1];
+        if ($width < 1 || $height < 1 || $width > 3000 || $height > 3000 || $width * $height > 6_000_000) {
+            throw new \InvalidArgumentException('A imagem excede as dimensões permitidas (3.000 × 3.000, até 6 MP).');
+        }
+        $source = @imagecreatefromstring($bytes);
+        if (!$source) throw new \InvalidArgumentException('A imagem não pôde ser processada.');
+        $scale = min(1, 1200 / max($width, $height));
+        $newWidth = max(1, (int) round($width * $scale)); $newHeight = max(1, (int) round($height * $scale));
+        $target = imagecreatetruecolor($newWidth, $newHeight);
+        $white = imagecolorallocate($target, 255, 255, 255); imagefill($target, 0, 0, $white);
+        imagecopyresampled($target, $source, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+        ob_start(); imagejpeg($target, null, 82); $result = ob_get_clean();
+        imagedestroy($source); imagedestroy($target);
+        if (!is_string($result) || strlen($result) > 512_000) throw new \InvalidArgumentException('A foto otimizada deve ter no máximo 500 KB.');
+        return base64_encode($result);
+    }
+
+    private function photo(AthleteModel $model, int $id): void
+    {
+        $bytes = $model->photo($id);
+        if ($bytes === null) { http_response_code(404); exit; }
+        header('Content-Type: image/jpeg'); header('X-Content-Type-Options: nosniff');
+        header('Content-Length: ' . strlen($bytes)); echo $bytes;
+    }
+
+    private function form(array $config, ?array $athlete, array $values, ?array $errors): void
+    {
+        $escape = [View::class, 'escape']; $csrfToken = Csrf::token();
+        $values = array_replace(is_array($athlete) ? $athlete : [], $values);
+        $model = new AthleteModel();
+        $categoryOptions = $this->groupCategories($model->categoryCatalog());
+        $roles = $model->roleCatalog();
+        $numberOptions = [];
+        $athleteId = $athlete !== null ? (int) $athlete['id'] : null;
+        foreach ($categoryOptions as $category) {
+            $numberOptions[$category['id']] = $model->availableNumbers($category['id'], $athleteId);
+        }
+        if (is_array($values['categorias'] ?? null)) {
+            $selectedCategories = $values['categorias'];
+        } elseif ($athlete !== null) {
+            $selectedCategories = $model->assignmentsForAthlete((int) $athlete['id']);
+            foreach ($model->rolesForAthlete((int) $athlete['id']) as $categoryId => $roleIds) {
+                $selectedCategories[$categoryId] ??= ['numero_camisa' => null, 'posicoes' => [], 'cargos' => []];
+                $selectedCategories[$categoryId]['cargos'] = $roleIds;
+            }
+        } else {
+            $selectedCategories = [];
+        }
+        require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'form.php';
+    }
+
+    private function listing(array $config, array $athletes, string $search, bool $activeOnly, array $positionSummary, array $categorySummary): void
+    {
+        $escape = [View::class, 'escape']; $csrfToken = Csrf::token();
+        require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'index.php';
+    }
+
+    private function categoriesPage(AthleteModel $model, array $config, ?string $error): void
+    {
+        $escape = [View::class, 'escape'];
+        $csrfToken = Csrf::token();
+        $categoryOptions = $this->groupCategories($model->categoryCatalog());
+        $roles = $model->roleCatalog();
+        require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'categories.php';
+    }
+
+    private function groupCategories(array $rows): array
+    {
+        $categories = [];
+        foreach ($rows as $row) {
+            $id = (int) $row['categoria_id'];
+            $categories[$id] ??= [
+                'id' => $id, 'modalidade' => (string) $row['modalidade'], 'genero' => (string) $row['genero'],
+                'sides' => [],
+            ];
+            $sideCode = (string) $row['side_codigo'];
+            $categories[$id]['sides'][$sideCode] ??= [
+                'codigo' => $sideCode, 'nome' => (string) $row['side_nome'], 'posicoes' => [],
+            ];
+            if ($row['posicao_id'] !== null) {
+                $categories[$id]['sides'][$sideCode]['posicoes'][] = [
+                    'id' => (int) $row['posicao_id'], 'nome' => (string) $row['posicao_nome'],
+                ];
+            }
+        }
+        return array_values($categories);
+    }
+
+    private function redirectCategories(string $message): never
+    {
+        header('Location: atletas.php?action=categories&notice=' . rawurlencode($message), true, 303);
+        exit;
+    }
+
+    private function id(mixed $value): int
+    {
+        if (!is_scalar($value) || preg_match('/\A[1-9]\d{0,17}\z/', (string) $value) !== 1) {
+            http_response_code(400); exit('Identificador inválido.');
+        }
+        return (int) $value;
+    }
+
+    private function redirect(string $message): never
+    {
+        header('Location: atletas.php?status=salvo&notice=' . rawurlencode($message), true, 303);
+        exit;
+    }
+}
+FLAG_SETUP_ATLETAS_CONTROLLER,
+    'modules/atletas/Views/index.php' => <<<'FLAG_SETUP_ATLETAS_INDEX_VIEW'
+<?php
+
+declare(strict_types=1);
+$appName = (string) ($config['app']['name'] ?? 'Sistema FLAG');
+?>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow"><title>Atletas | <?= $escape($appName) ?></title>
+    <link rel="stylesheet" href="<?= $escape(\App\Core\View::assetUrl('../assets/css/app.css', $config)) ?>">
+    <link rel="stylesheet" href="<?= $escape(\App\Core\View::assetUrl('../modules/atletas/Assets/atletas.css', $config)) ?>">
+</head>
+<body class="admin-page">
+<header class="admin-header"><a class="auth-brand" href="../admin/index.php"><?= $escape($appName) ?> · Painel</a><form method="post" action="../logout.php"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><button class="button-secondary" type="submit">Sair</button></form></header>
+<main class="admin-content athletes-page">
+    <p class="eyebrow">GESTÃO ESPORTIVA</p><h1>Atletas</h1>
+    <p class="athletes-lead">Cadastro administrativo da equipe.</p>
+    <?php if (isset($_GET['notice'])): ?><p class="athlete-notice" role="status"><?= $escape($_GET['notice']) ?></p><?php endif; ?>
+    <div class="athlete-toolbar"><form method="get" class="athlete-search"><label for="q">Buscar atleta</label><div><input id="q" name="q" type="search" value="<?= $escape($search) ?>" maxlength="100" placeholder="Digite o nome ou apelido" autocomplete="off"><select name="status" aria-label="Filtrar status"><option value="ativos" <?= $activeOnly ? 'selected' : '' ?>>Ativos</option><option value="todos" <?= !$activeOnly ? 'selected' : '' ?>>Todos</option></select><button class="athlete-button" type="submit">Buscar</button></div></form><div class="athlete-toolbar-actions"><a class="athlete-button" href="atletas.php?action=new">Novo atleta</a><a class="athlete-button button-outline" href="atletas.php?action=categories">Categorias, posições e cargos</a></div></div>
+    <p class="athlete-privacy">A lista não exibe documentos, contato de emergência ou informações de saúde.</p>
+    <?php if ($athletes !== []): ?><p class="athlete-result-count"><?= count($athletes) ?> <?= count($athletes) === 1 ? 'atleta encontrado' : 'atletas encontrados' ?><?= count($athletes) === 100 ? ' · exibindo os primeiros 100' : '' ?></p><?php endif; ?>
+    <div class="athlete-list" aria-live="polite">
+    <?php if ($athletes === []): ?>
+        <section class="athlete-empty">
+            <span class="athlete-empty-icon" aria-hidden="true">🏈</span>
+            <h2><?= $search !== '' ? 'Nenhum atleta encontrado' : 'Ainda não há atletas cadastrados' ?></h2>
+            <p><?= $search !== '' ? 'Não encontramos resultados para “' . $escape($search) . '”. Confira a escrita ou limpe a busca.' : 'Cadastre o primeiro atleta para começar a montar as equipes e atribuir categorias e posições.' ?></p>
+            <div class="athlete-empty-actions">
+                <?php if ($search !== ''): ?><a class="athlete-button button-outline" href="atletas.php<?= !$activeOnly ? '?status=todos' : '' ?>">Limpar busca</a><?php endif; ?>
+                <a class="athlete-button" href="atletas.php?action=new">Cadastrar atleta</a>
+            </div>
+        </section>
+    <?php endif; ?>
+    <?php foreach ($athletes as $row):
+        $birth = $row['data_nascimento'] ?? null;
+        $age = is_string($birth) ? (new DateTimeImmutable($birth))->diff(new DateTimeImmutable('today'))->y : null;
+        $isActive = in_array($row['ativo'] ?? false, [true, 1, '1', 't', 'true'], true);
+    ?>
+        <article class="athlete-card">
+            <?php if (in_array($row['tem_foto'] ?? false, [true, 1, '1', 't', 'true'], true)): ?><img class="athlete-photo" src="atletas.php?action=photo&amp;id=<?= (int) $row['id'] ?>" alt="Foto de <?= $escape($row['nome']) ?>" width="72" height="72" loading="lazy"><?php else: ?><span class="athlete-photo athlete-photo-empty" aria-hidden="true">🏈</span><?php endif; ?>
+            <div class="athlete-main"><h2><?= $escape($row['nome']) ?><?= !empty($row['apelido']) ? ' <span>“' . $escape($row['apelido']) . '”</span>' : '' ?></h2><p><?= $row['genero'] === 'masculino' ? 'Masculino' : ($row['genero'] === 'feminino' ? 'Feminino' : 'Gênero pendente') ?><?= $age !== null ? ' · ' . $age . ' anos' : '' ?></p>
+                <?php foreach ($categorySummary[(int) $row['id']] ?? [] as $category): ?><p class="athlete-category-summary"><strong><?= $escape($category['modalidade']) ?> · <?= $category['genero'] === 'masculino' ? 'Masculino' : 'Feminino' ?></strong><?= $category['numero_camisa'] !== null ? ' · Camisa ' . $escape($category['numero_camisa']) : '' ?><?= !empty($category['cargos']) ? ' · Cargos: ' . $escape($category['cargos']) : '' ?></p><?php endforeach; ?>
+                <?php foreach ($positionSummary[(int) $row['id']] ?? [] as $assignment): ?><p class="athlete-assignment"><strong><?= $escape($assignment['modalidade']) ?> · <?= $assignment['genero'] === 'masculino' ? 'Masculino' : 'Feminino' ?> · <?= $escape($assignment['side_nome']) ?>:</strong> <?= $escape($assignment['posicoes'] ?? '') ?></p><?php endforeach; ?>
+            </div>
+            <span class="athlete-status <?= $isActive ? 'is-active' : 'is-inactive' ?>"><?= $isActive ? 'Ativo' : 'Inativo' ?></span><a class="athlete-link" href="atletas.php?action=edit&amp;id=<?= (int) $row['id'] ?>">Editar</a>
+            <form method="post" action="atletas.php"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= (int) $row['id'] ?>"><button class="athlete-text-button" type="submit"><?= $isActive ? 'Desativar' : 'Ativar' ?></button></form>
+        </article>
+    <?php endforeach; ?>
+    </div>
+</main>
+</body>
+</html>
+FLAG_SETUP_ATLETAS_INDEX_VIEW,
+    'modules/atletas/Views/form.php' => <<<'FLAG_SETUP_ATLETAS_FORM_VIEW'
+<?php
+
+declare(strict_types=1);
+$appName = (string) ($config['app']['name'] ?? 'Sistema FLAG');
+$value = static fn(string $key, mixed $default = ''): string => (string) ($values[$key] ?? $default);
+$isEdit = (int) ($values['id'] ?? 0) > 0;
+$isActive = in_array($values['ativo'] ?? true, [true, 1, '1', 't', 'true'], true);
+$hasPhoto = in_array($values['tem_foto'] ?? false, [true, 1, '1', 't', 'true'], true);
+?>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow"><title><?= $isEdit ? 'Editar atleta' : 'Novo atleta' ?> | <?= $escape($appName) ?></title>
+    <link rel="stylesheet" href="<?= $escape(\App\Core\View::assetUrl('../assets/css/app.css', $config)) ?>">
+    <link rel="stylesheet" href="<?= $escape(\App\Core\View::assetUrl('../modules/atletas/Assets/atletas.css', $config)) ?>">
+</head>
+<body class="admin-page">
+<header class="admin-header"><a class="auth-brand" href="../admin/index.php"><?= $escape($appName) ?> · Painel</a><form method="post" action="../logout.php"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><button class="button-secondary" type="submit">Sair</button></form></header>
+<main class="admin-content athletes-page">
+    <a class="athlete-link" href="atletas.php">← Voltar à lista</a><p class="eyebrow">GESTÃO ESPORTIVA</p><h1><?= $isEdit ? 'Editar atleta' : 'Novo atleta' ?></h1>
+    <?php if (is_array($errors) && $errors !== []): ?><div class="athlete-errors" role="alert"><p>Confira os dados:</p><ul><?php foreach ($errors as $error): ?><li><?= $escape($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
+    <form class="athlete-form" method="post" action="atletas.php" enctype="multipart/form-data">
+        <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="save"><input type="hidden" name="id" value="<?= $escape($value('id', 0)) ?>">
+        <fieldset><legend>Identificação</legend><div class="athlete-fields">
+            <label>Nome *<input name="nome" maxlength="120" required autocomplete="name" value="<?= $escape($value('nome')) ?>"></label>
+            <label>Apelido<input name="apelido" maxlength="80" value="<?= $escape($value('apelido')) ?>"></label>
+            <label>Gênero para elegibilidade nas categorias *<select id="athlete-gender" name="genero" required><option value="">Selecione</option><option value="masculino" <?= $value('genero') === 'masculino' ? 'selected' : '' ?>>Masculino</option><option value="feminino" <?= $value('genero') === 'feminino' ? 'selected' : '' ?>>Feminino</option></select><small>Define quais categorias podem ser vinculadas ao atleta.</small></label>
+            <label>Data de nascimento<input name="data_nascimento" type="date" max="<?= date('Y-m-d') ?>" value="<?= $escape(substr($value('data_nascimento'), 0, 10)) ?>"><small>A idade é calculada a partir desta data.</small></label>
+            <label>Status<select name="ativo"><option value="1" <?= $isActive ? 'selected' : '' ?>>Ativo</option><option value="0" <?= !$isActive ? 'selected' : '' ?>>Inativo</option></select></label>
+        </div></fieldset>
+
+        <fieldset><legend>Vínculos esportivos</legend>
+            <p class="athlete-privacy">Cada categoria tem seu próprio número de camisa, cargos e posições. A mesma pessoa pode ter funções diferentes no X5 e no X8.</p>
+            <p><a class="athlete-link" href="atletas.php?action=categories">Configurar categorias, posições e cargos</a></p>
+            <?php if ($categoryOptions === []): ?><p class="athlete-empty">Não há categorias ativas. Configure uma categoria antes de salvar a participação.</p>
+            <?php else: foreach ($categoryOptions as $category):
+                $categoryId = $category['id'];
+                $picked = $selectedCategories[$categoryId] ?? null;
+                $participates = array_key_exists($categoryId, $selectedCategories);
+                $pickedPositions = is_array($picked) ? ($picked['posicoes'] ?? $picked) : [];
+                if (!is_array($pickedPositions)) $pickedPositions = [];
+                $pickedRoles = is_array($picked) && is_array($picked['cargos'] ?? null) ? $picked['cargos'] : [];
+                $pickedNumber = is_array($picked) ? (string) ($picked['numero_camisa'] ?? '') : '';
+                $availableNumbers = $numberOptions[$categoryId] ?? [];
+                $pickedNumberAvailable = $pickedNumber !== '' && in_array((int) $pickedNumber, $availableNumbers, true);
+                $compatible = $category['genero'] === $value('genero');
+            ?>
+                <section class="athlete-category-choice" data-category-gender="<?= $escape($category['genero']) ?>">
+                    <label class="athlete-category-toggle"><input class="category-link-toggle" type="checkbox" name="categorias[<?= $categoryId ?>][participa]" value="1" <?= $participates ? 'checked' : '' ?>> Vincular a <?= $escape($category['modalidade']) ?> · <?= $category['genero'] === 'masculino' ? 'Masculino' : 'Feminino' ?></label>
+                    <?php if (!$compatible): ?><p class="athlete-role-hint">Para este gênero, a pessoa pode receber cargos da equipe. Camisa, posições e o cargo Atleta exigem gênero esportivo compatível.</p><?php endif; ?>
+                    <div class="athlete-category-fields">
+                        <label class="athlete-jersey-field athlete-player-field">Número da camisa
+                            <select name="categorias[<?= $categoryId ?>][numero_camisa]" class="category-assignment-control athlete-player-control" <?= $compatible ? '' : 'disabled' ?>>
+                                <option value="">Sem número</option>
+                                <?php if ($pickedNumber !== '' && !$pickedNumberAvailable): ?><option value="<?= $escape($pickedNumber) ?>" selected disabled>Nº <?= $escape($pickedNumber) ?> · já ocupado</option><?php endif; ?>
+                                <?php foreach ($availableNumbers as $availableNumber): ?><option value="<?= $availableNumber ?>" <?= (string) $availableNumber === $pickedNumber ? 'selected' : '' ?>>Nº <?= $availableNumber ?></option><?php endforeach; ?>
+                            </select>
+                            <small>Os números já usados nesta categoria não aparecem.</small>
+                        </label>
+                        <fieldset class="athlete-role-group"><legend>Cargos nesta categoria</legend>
+                            <?php if ($roles === []): ?><small>Nenhum cargo cadastrado. <a href="atletas.php?action=categories">Cadastrar cargos</a></small>
+                            <?php else: ?><div class="athlete-role-options"><?php foreach ($roles as $role): $playerRole = in_array(mb_strtolower((string) $role['nome'], 'UTF-8'), ['atleta', 'jogador', 'jogadora'], true); ?><label class="athlete-role-option"><input class="category-assignment-control" type="checkbox" name="categorias[<?= $categoryId ?>][cargos][]" value="<?= $role['id'] ?>" <?= in_array((int) $role['id'], array_map('intval', $pickedRoles), true) ? 'checked' : '' ?> <?= $playerRole && !$compatible ? 'disabled' : '' ?> <?= $playerRole ? 'data-player-role="true"' : '' ?>> <?= $escape($role['nome']) ?></label><?php endforeach; ?></div><?php endif; ?>
+                        </fieldset>
+                    </div>
+                    <div class="athlete-side-groups athlete-player-fields">
+                    <?php foreach ($category['sides'] as $side): ?>
+                        <fieldset class="athlete-side"><legend><?= $escape($side['nome']) ?></legend>
+                            <?php if ($side['posicoes'] === []): ?><small>Nenhuma posição configurada. <a href="atletas.php?action=categories">Adicionar posições</a></small>
+                            <?php else: foreach ($side['posicoes'] as $position): ?><label class="athlete-position"><input class="category-assignment-control athlete-player-control" type="checkbox" name="categorias[<?= $categoryId ?>][posicoes][]" value="<?= $position['id'] ?>" <?= in_array($position['id'], $pickedPositions, false) ? 'checked' : '' ?> <?= $compatible ? '' : 'disabled' ?>> <?= $escape($position['nome']) ?></label><?php endforeach; endif; ?>
+                        </fieldset>
+                    <?php endforeach; ?>
+                    </div>
+                </section>
+            <?php endforeach; endif; ?>
+        </fieldset>
+
+        <fieldset><legend>Contato</legend><div class="athlete-fields">
+            <label>Celular do atleta<input name="celular" type="tel" inputmode="tel" maxlength="30" autocomplete="tel" value="<?= $escape($value('celular')) ?>"></label>
+            <label>E-mail<input name="email" type="email" maxlength="254" autocomplete="email" value="<?= $escape($value('email')) ?>"></label>
+        </div></fieldset>
+        <fieldset><legend>Contato de emergência</legend><div class="athlete-fields">
+            <label>Nome<input name="contato_emergencia_nome" maxlength="120" value="<?= $escape($value('contato_emergencia_nome')) ?>"></label>
+            <label>Celular<input name="contato_emergencia_celular" type="tel" inputmode="tel" maxlength="30" value="<?= $escape($value('contato_emergencia_celular')) ?>"></label>
+            <label>Parentesco<input name="contato_emergencia_parentesco" maxlength="60" value="<?= $escape($value('contato_emergencia_parentesco')) ?>"></label>
+        </div></fieldset>
+        <fieldset><legend>Documentos e saúde <span class="athlete-private-label">Dados restritos</span></legend><p class="athlete-privacy">Acesso restrito a administradores. Informe somente o necessário para a gestão da equipe.</p><div class="athlete-fields">
+            <label>RG<input name="rg" maxlength="30" value="<?= $escape($value('rg')) ?>"></label>
+            <label>CPF<input name="cpf" inputmode="numeric" maxlength="14" autocomplete="off" value="<?= $escape($value('cpf')) ?>"><small>O CPF não pode estar associado a outro cadastro.</small></label>
+            <label>Tipo sanguíneo<select name="tipo_sanguineo"><option value="">Não informado</option><?php foreach (['A+','A-','B+','B-','AB+','AB-','O+','O-'] as $blood): ?><option value="<?= $blood ?>" <?= $value('tipo_sanguineo') === $blood ? 'selected' : '' ?>><?= $blood ?></option><?php endforeach; ?></select></label>
+            <label class="athlete-wide">Alergias / observações de saúde<textarea name="alergias" maxlength="2000" rows="4"><?= $escape($value('alergias')) ?></textarea></label>
+        </div></fieldset>
+        <fieldset><legend>Foto</legend><div class="athlete-fields">
+            <?php if ($hasPhoto): ?><div class="athlete-photo-preview"><img src="atletas.php?action=photo&amp;id=<?= (int) $values['id'] ?>" alt="Foto atual do atleta" width="120" height="120"><label><input type="checkbox" name="remover_foto" value="1"> Remover foto atual</label></div><?php endif; ?>
+            <label class="athlete-wide">Enviar ou substituir foto<input type="file" name="foto" accept="image/jpeg,image/png,image/webp"><small>JPEG, PNG ou WebP. Máximo 5 MB e 6 megapixels. A imagem será redimensionada e convertida para JPEG.</small></label>
+        </div></fieldset>
+        <div class="athlete-actions"><button class="athlete-button" type="submit">Salvar cadastro</button><a class="athlete-link" href="atletas.php">Cancelar</a></div>
+    </form>
+</main>
+<script src="<?= $escape(\App\Core\View::assetUrl('../modules/atletas/Assets/atletas.js', $config)) ?>" defer></script>
+</body>
+</html>
+FLAG_SETUP_ATLETAS_FORM_VIEW,
+    'modules/atletas/Assets/atletas.css' => <<<'FLAG_SETUP_ATLETAS_CSS'
+.athletes-page{max-width:1040px}
+.athletes-page h1{margin:0 0 8px}
+.athletes-page>.eyebrow{margin-bottom:12px}
+.athletes-lead{margin:0 0 28px;color:var(--muted);font-size:16px;line-height:1.65}
+.athlete-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin:28px 0 14px;padding:20px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 8px 24px rgba(29,41,80,.05)}
+.athlete-search{display:grid;flex:1;gap:8px;max-width:620px}
+.athlete-search>label,.athlete-form>label,.athlete-fields>label{display:grid;gap:7px;color:var(--ink);font-size:13px;font-weight:750}
+.athlete-search>div{display:flex;gap:9px}
+.athlete-search input,.athlete-search select,.athlete-form input:not([type=checkbox]):not([type=file]),.athlete-form select,.athlete-form textarea{width:100%;min-height:46px;padding:10px 12px;border:1px solid #cbd2df;border-radius:5px;background:#fff;color:var(--ink);font:inherit}
+.athlete-search input{flex:1;min-width:120px}
+.athlete-search select{width:auto;min-width:130px}
+.athlete-search input:focus,.athlete-search select:focus,.athlete-form input:focus,.athlete-form select:focus,.athlete-form textarea:focus{outline:3px solid rgba(40,121,182,.16);border-color:var(--blue)}
+.athlete-button{display:inline-flex;min-height:44px;align-items:center;justify-content:center;padding:0 16px;border:1px solid var(--blue);border-radius:5px;background:var(--blue);color:#fff;font:inherit;font-size:13px;font-weight:750;text-decoration:none;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.athlete-button:hover{border-color:var(--navy);background:var(--navy);color:#fff}
+.athlete-button.button-outline{border:1px solid var(--blue);background:#fff;color:var(--blue)}
+.athlete-button.button-outline:hover{background:#f1f7fc;color:var(--navy)}
+.athlete-toolbar-actions,.athlete-empty-actions{display:flex;flex-wrap:wrap;gap:9px}
+.athlete-privacy{margin:12px 0 18px;padding:11px 14px;border-left:3px solid var(--blue);background:#f1f7fc;color:#44536b;font-size:12px;line-height:1.55}
+.athlete-result-count{margin:18px 0 10px;color:var(--muted);font-size:13px;font-weight:700}
+.athlete-list{display:grid;gap:12px}
+.athlete-card{display:grid;grid-template-columns:72px minmax(0,1fr) auto;align-items:center;gap:16px;padding:18px;border:1px solid var(--line);border-radius:7px;background:#fff}
+.athlete-photo{width:72px;height:72px;object-fit:cover;border-radius:7px;background:#f1f3f6}
+.athlete-photo-empty{display:grid;place-items:center;font-size:27px}
+.athlete-main{min-width:0}
+.athlete-main h2{margin:0 0 5px;font-size:18px;line-height:1.35}
+.athlete-main h2 span{color:var(--muted);font-size:15px;font-weight:500}
+.athlete-main p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}
+.athlete-main .athlete-assignment{margin-top:5px;font-size:12px}
+.athlete-status{justify-self:end;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800}
+.athlete-status.is-active{background:#e8f5ee;color:#216b42}
+.athlete-status.is-inactive{background:#f1f2f4;color:#596273}
+.athlete-card>.athlete-link,.athlete-link{color:var(--blue);font-size:13px;font-weight:750;text-decoration:none}
+.athlete-link:hover{text-decoration:underline}
+.athlete-card form{margin:0}
+.athlete-text-button{padding:4px;border:0;background:transparent;color:#596273;font:inherit;font-size:12px;text-decoration:underline;cursor:pointer}
+.athlete-empty{display:grid;justify-items:center;gap:12px;padding:42px 22px;border:1px dashed #b9c6d8;border-radius:8px;background:#f8fafc;text-align:center}
+.athlete-empty-icon{display:grid;width:54px;height:54px;place-items:center;border-radius:50%;background:#e9f3fb;font-size:25px}
+.athlete-empty h2{margin:0;font-size:20px;letter-spacing:-.02em}
+.athlete-empty p{max-width:520px;margin:0;color:var(--muted);font-size:14px;line-height:1.65}
+.athlete-empty-actions{justify-content:center;margin-top:5px}
+.athlete-form{display:grid;gap:18px;margin:24px 0;padding:24px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 8px 24px rgba(29,41,80,.05)}
+.athlete-form fieldset{min-width:0;margin:0;padding:20px;border:1px solid #e1e5ec;border-radius:7px;background:#fff}
+.athlete-form legend{padding:0 8px;color:var(--navy);font-size:16px;font-weight:800}
+.athlete-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.athlete-form small{color:var(--muted);font-size:12px;font-weight:450;line-height:1.5}
+.athlete-form input[type=checkbox]{width:18px;height:18px;accent-color:var(--blue)}
+.athlete-form input[type=file]{width:100%;padding:12px;border:1px dashed #b9c6d8;border-radius:5px;background:#f8fafc;color:var(--ink);font:inherit}
+.athlete-form textarea{min-height:110px;resize:vertical}
+.athlete-wide{grid-column:1/-1}
+.athlete-errors{margin:18px 0;padding:14px 18px;border:1px solid #e7b8bb;border-radius:6px;background:#fff3f3;color:#801b22;font-size:14px;line-height:1.6}
+.athlete-errors p{margin:0 0 5px;font-weight:800}
+.athlete-errors ul{margin:5px 0 0;padding-left:20px}
+.athlete-actions{display:flex;align-items:center;gap:14px;padding-top:4px}
+.athlete-photo-preview{display:flex;align-items:center;gap:14px}
+.athlete-photo-preview img{width:100px;height:100px;object-fit:cover;border-radius:8px}
+.athlete-photo-preview label{display:flex;align-items:center;gap:8px;font-size:13px}
+.athlete-category-choice{margin-top:16px;padding:16px;border:1px solid var(--line);border-radius:6px;background:#f8fafc}
+.athlete-category-toggle{display:flex!important;align-items:center;gap:9px;font-size:14px!important}
+.athlete-category-toggle input,.athlete-position input{width:18px;height:18px;accent-color:var(--blue)}
+.athlete-side-groups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+.athlete-side{min-width:0;padding:12px;border:1px solid var(--line);border-radius:5px;background:#fff}
+.athlete-side legend{font-size:13px}
+.athlete-position{display:flex!important;align-items:center;gap:8px;margin:8px 0}
+.athlete-assignment{margin-top:5px!important;font-size:12px!important}
+.category-config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:24px 0 40px}
+.category-config-card{align-content:start;margin:0;padding:22px}
+.category-form-heading{display:flex;align-items:flex-start;gap:12px;margin-bottom:2px}
+.category-form-heading>span{display:grid;width:34px;height:34px;flex:none;place-items:center;border-radius:50%;background:#e9f3fb;color:var(--blue);font-size:12px;font-weight:850}
+.category-form-heading h2{margin:0;font-size:19px}
+.category-form-heading p{margin:5px 0 0;color:var(--muted);font-size:13px;line-height:1.5}
+.category-form-help{margin:0;padding:10px 12px;border-radius:5px;background:#f1f7fc;color:#44536b;font-size:12px;line-height:1.55}
+.category-config-card>.athlete-button{justify-self:start;margin-top:0}
+.category-catalog{display:grid;gap:12px}
+.category-catalog>h2{margin:0}
+.category-catalog-card{padding:18px;border:1px solid var(--line);border-radius:7px;background:#fff}
+.category-catalog-card h3{margin:0 0 14px}
+.category-catalog-card h3 span{margin-left:6px;color:var(--muted);font-size:13px;font-weight:500}
+.category-catalog-sides{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.category-catalog-sides section{padding:12px;border-radius:5px;background:#f7f8fa}
+.category-catalog-sides h4{margin:0 0 7px;font-size:13px}
+.category-catalog-sides ul,.category-catalog-sides p{margin:0;padding-left:18px;color:var(--muted);font-size:13px;line-height:1.6}
+.category-catalog-sides p{padding:0}
+.athlete-category-fields{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(0,1.5fr);gap:14px;margin-top:16px}
+.athlete-role-hint{margin:12px 0 0;padding:9px 11px;border-left:3px solid var(--blue);background:#f1f7fc;color:#44536b;font-size:12px;line-height:1.55}
+.athlete-player-control:disabled{background:#f1f2f4;color:#737b89;cursor:not-allowed}
+.athlete-jersey-field{display:grid;align-content:start;gap:7px;color:var(--ink);font-size:13px;font-weight:750}
+.athlete-jersey-field select{width:100%;min-height:42px;padding:8px 10px;border:1px solid #cbd2df;border-radius:5px;background:#fff;color:var(--ink);font:inherit}
+.athlete-role-group{min-width:0;margin:0;padding:10px 12px;border:1px solid #e1e5ec;border-radius:5px;background:#fff}
+.athlete-role-group legend{font-size:12px}
+.athlete-role-options{display:flex;flex-wrap:wrap;gap:8px}
+.athlete-role-option{display:flex!important;align-items:center;gap:6px;padding:6px 9px;border:1px solid #e1e5ec;border-radius:999px;background:#f8fafc;font-size:12px!important;font-weight:600!important}
+.athlete-role-option input{width:16px!important;height:16px!important}
+.athlete-category-summary{margin-top:7px!important;padding-top:6px;border-top:1px solid #edf0f4}
+.athlete-category-summary strong{color:var(--navy)}
+.cargo-catalog{display:grid;gap:12px;margin-top:32px}
+.cargo-catalog>h2{margin:0}
+.cargo-catalog-card{padding:16px;border:1px solid var(--line);border-radius:7px;background:#fff}
+.cargo-chip-list{display:flex;flex-wrap:wrap;gap:8px}
+.cargo-chip{padding:7px 11px;border-radius:999px;background:#f1f7fc;color:var(--navy);font-size:12px;font-weight:700}
+@media(max-width:900px){.category-config-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.category-config-grid>:last-child{grid-column:1/-1}}
+@media(max-width:760px){.athlete-toolbar{align-items:stretch;flex-direction:column}.athlete-toolbar-actions{align-items:stretch}.athlete-toolbar-actions .athlete-button{align-self:flex-start}.category-config-grid,.athlete-side-groups,.category-catalog-sides{grid-template-columns:1fr}.category-config-grid>:last-child{grid-column:auto}.athlete-category-fields{grid-template-columns:1fr}}
+@media(max-width:560px){.athletes-page{width:min(100% - 32px,540px);margin:34px auto}.athlete-toolbar,.athlete-form{padding:16px}.athlete-search>div{display:grid;grid-template-columns:1fr 1fr}.athlete-search input{grid-column:1/-1}.athlete-search select,.athlete-search button{width:100%}.athlete-card{grid-template-columns:56px minmax(0,1fr);gap:12px;padding:14px}.athlete-photo{width:56px;height:56px}.athlete-status{grid-column:2;justify-self:start}.athlete-card>.athlete-link,.athlete-card form{grid-column:2}.athlete-fields{grid-template-columns:1fr}.athlete-wide{grid-column:auto}.athlete-form fieldset{padding:16px}.athlete-actions{align-items:stretch;flex-direction:column}.athlete-actions .athlete-button{width:100%}}
+FLAG_SETUP_ATLETAS_CSS,
+    'modules/atletas/Database/migrations/001_atletas.sql' => <<<'FLAG_SETUP_ATLETAS_MIGRATION'
+CREATE TABLE IF NOT EXISTS atletas (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nome VARCHAR(120) NOT NULL,
+    apelido VARCHAR(80),
+    numero SMALLINT CHECK (numero BETWEEN 0 AND 99),
+    genero VARCHAR(12),
+    cargo VARCHAR(80),
+    data_nascimento DATE,
+    celular VARCHAR(20),
+    rg VARCHAR(30),
+    cpf VARCHAR(11),
+    email VARCHAR(254),
+    contato_emergencia_nome VARCHAR(120),
+    contato_emergencia_celular VARCHAR(20),
+    contato_emergencia_parentesco VARCHAR(60),
+    tipo_sanguineo VARCHAR(3) CHECK (tipo_sanguineo IN ('A+','A-','B+','B-','AB+','AB-','O+','O-')),
+    alergias TEXT,
+    foto BYTEA,
+    ativo BOOLEAN NOT NULL DEFAULT TRUE,
+    criado_por BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
+    atualizado_por BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK ((contato_emergencia_nome IS NULL) = (contato_emergencia_celular IS NULL))
+);
+
+ALTER TABLE atletas ADD COLUMN IF NOT EXISTS genero VARCHAR(12);
+CREATE UNIQUE INDEX IF NOT EXISTS atletas_id_genero_unique ON atletas (id, genero);
+CREATE UNIQUE INDEX IF NOT EXISTS atletas_cpf_unique ON atletas (cpf) WHERE cpf IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS atletas_email_unique ON atletas (lower(email)) WHERE email IS NOT NULL;
+CREATE INDEX IF NOT EXISTS atletas_nome_idx ON atletas (lower(nome), lower(apelido));
+CREATE INDEX IF NOT EXISTS atletas_ativo_idx ON atletas (ativo, lower(nome));
+
+CREATE TABLE IF NOT EXISTS categorias (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    modalidade VARCHAR(40) NOT NULL,
+    genero VARCHAR(12) NOT NULL CHECK (genero IN ('masculino', 'feminino')),
+    ativo BOOLEAN NOT NULL DEFAULT TRUE,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (id, genero)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS categorias_modalidade_genero_unique ON categorias (lower(modalidade), genero);
+
+CREATE TABLE IF NOT EXISTS categoria_sides (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    categoria_id BIGINT NOT NULL REFERENCES categorias(id) ON DELETE CASCADE,
+    codigo VARCHAR(24) NOT NULL CHECK (codigo IN ('ataque', 'defesa', 'time_especial')),
+    nome VARCHAR(40) NOT NULL,
+    UNIQUE (categoria_id, codigo),
+    UNIQUE (categoria_id, id)
+);
+
+CREATE TABLE IF NOT EXISTS categoria_posicoes (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    categoria_id BIGINT NOT NULL,
+    side_id BIGINT NOT NULL,
+    nome VARCHAR(60) NOT NULL,
+    ativo BOOLEAN NOT NULL DEFAULT TRUE,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (categoria_id, side_id) REFERENCES categoria_sides(categoria_id, id) ON DELETE CASCADE,
+    UNIQUE (categoria_id, id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS categoria_posicoes_nome_unique
+    ON categoria_posicoes (categoria_id, side_id, lower(nome));
+CREATE UNIQUE INDEX IF NOT EXISTS categoria_posicoes_nome_categoria_unique
+    ON categoria_posicoes (categoria_id, lower(nome));
+
+CREATE TABLE IF NOT EXISTS atleta_categorias (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    atleta_id BIGINT NOT NULL,
+    categoria_id BIGINT NOT NULL,
+    genero VARCHAR(12) NOT NULL,
+    numero_camisa SMALLINT CHECK (numero_camisa BETWEEN 0 AND 99),
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (atleta_id, genero) REFERENCES atletas(id, genero) ON DELETE CASCADE,
+    FOREIGN KEY (categoria_id, genero) REFERENCES categorias(id, genero) ON DELETE RESTRICT,
+    UNIQUE (atleta_id, categoria_id),
+    UNIQUE (id, categoria_id)
+);
+ALTER TABLE atleta_categorias ADD COLUMN IF NOT EXISTS numero_camisa SMALLINT CHECK (numero_camisa BETWEEN 0 AND 99);
+CREATE UNIQUE INDEX IF NOT EXISTS atleta_categoria_numero_unique
+    ON atleta_categorias (categoria_id, numero_camisa) WHERE numero_camisa IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS cargos (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nome VARCHAR(60) NOT NULL,
+    ativo BOOLEAN NOT NULL DEFAULT TRUE,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS cargos_nome_unique ON cargos (lower(nome));
+INSERT INTO cargos (nome) VALUES
+    ('Staff'), ('Capitão'), ('Treinador'), ('Atleta'), ('Head Coach'), ('Manager')
+ON CONFLICT DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS atleta_cargos_por_categoria (
+    atleta_id BIGINT NOT NULL REFERENCES atletas(id) ON DELETE CASCADE,
+    categoria_id BIGINT NOT NULL REFERENCES categorias(id) ON DELETE CASCADE,
+    cargo_id BIGINT NOT NULL REFERENCES cargos(id) ON DELETE RESTRICT,
+    PRIMARY KEY (atleta_id, categoria_id, cargo_id)
+);
+CREATE INDEX IF NOT EXISTS atleta_cargos_por_categoria_categoria_idx ON atleta_cargos_por_categoria (categoria_id, atleta_id);
+
+CREATE TABLE IF NOT EXISTS atleta_categoria_posicoes (
+    atleta_categoria_id BIGINT NOT NULL,
+    categoria_id BIGINT NOT NULL,
+    posicao_id BIGINT NOT NULL,
+    PRIMARY KEY (atleta_categoria_id, posicao_id),
+    FOREIGN KEY (atleta_categoria_id, categoria_id)
+        REFERENCES atleta_categorias(id, categoria_id) ON DELETE CASCADE,
+    FOREIGN KEY (categoria_id, posicao_id)
+        REFERENCES categoria_posicoes(categoria_id, id) ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS atleta_categorias_categoria_idx ON atleta_categorias (categoria_id, atleta_id);
+CREATE INDEX IF NOT EXISTS atleta_categoria_posicoes_posicao_idx ON atleta_categoria_posicoes (posicao_id);
+
+INSERT INTO categorias (modalidade, genero) VALUES
+    ('X5', 'masculino'), ('X5', 'feminino'), ('X8', 'masculino'), ('X8', 'feminino')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO categoria_sides (categoria_id, codigo, nome)
+SELECT categorias.id, sides.codigo, sides.nome
+FROM categorias
+CROSS JOIN (VALUES ('ataque', 'Ataque'), ('defesa', 'Defesa'), ('time_especial', 'Time especial')) AS sides(codigo, nome)
+ON CONFLICT (categoria_id, codigo) DO NOTHING;
+
+INSERT INTO categoria_posicoes (categoria_id, side_id, nome)
+SELECT categorias.id, categoria_sides.id, seed.nome
+FROM (VALUES
+    ('X5', 'masculino', 'defesa', 'LB'),
+    ('X5', 'masculino', 'ataque', 'QB'),
+    ('X5', 'masculino', 'ataque', 'WR'),
+    ('X8', 'masculino', 'defesa', 'CB'),
+    ('X8', 'masculino', 'defesa', 'DL'),
+    ('X8', 'masculino', 'ataque', 'WR'),
+    ('X8', 'masculino', 'time_especial', 'Kicker')
+) AS seed(modalidade, genero, side_codigo, nome)
+JOIN categorias ON lower(categorias.modalidade) = lower(seed.modalidade) AND categorias.genero = seed.genero
+JOIN categoria_sides ON categoria_sides.categoria_id = categorias.id AND categoria_sides.codigo = seed.side_codigo
+ON CONFLICT DO NOTHING;
+FLAG_SETUP_ATLETAS_MIGRATION,
+    'modules/atletas/Views/categories.php' => <<<'FLAG_SETUP_ATLETAS_CATEGORIES_VIEW'
+<?php
+
+declare(strict_types=1);
+$appName = (string) ($config['app']['name'] ?? 'Sistema FLAG');
+?>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow"><title>Categorias e posições | <?= $escape($appName) ?></title>
+    <link rel="stylesheet" href="<?= $escape(\App\Core\View::assetUrl('../assets/css/app.css', $config)) ?>">
+    <link rel="stylesheet" href="<?= $escape(\App\Core\View::assetUrl('../modules/atletas/Assets/atletas.css', $config)) ?>">
+</head>
+<body class="admin-page">
+<header class="admin-header"><a class="auth-brand" href="../admin/index.php"><?= $escape($appName) ?> · Painel</a><form method="post" action="../logout.php"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><button class="button-secondary" type="submit">Sair</button></form></header>
+<main class="admin-content athletes-page">
+    <a class="athlete-link" href="atletas.php">← Voltar a atletas</a><p class="eyebrow">CONFIGURAÇÃO ESPORTIVA</p><h1>Categorias, posições e cargos</h1>
+    <p class="athletes-lead">Cadastre as categorias, posições e funções da equipe. As posições e os números de camisa são independentes em cada categoria.</p>
+    <?php if (isset($_GET['notice'])): ?><p class="athlete-notice" role="status"><?= $escape($_GET['notice']) ?></p><?php endif; ?>
+    <?php if (is_string($error) && $error !== ''): ?><p class="athlete-errors" role="alert"><?= $escape($error) ?></p><?php endif; ?>
+    <div class="category-config-grid">
+        <form class="category-config-card athlete-form" method="post" action="atletas.php?action=categories">
+            <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="create-category">
+            <div class="category-form-heading"><span>01</span><div><h2>Nova categoria</h2><p>Crie uma modalidade para um gênero específico.</p></div></div>
+            <label>Nome da modalidade<input name="modalidade" maxlength="40" placeholder="Ex.: X12" required></label>
+            <label>Gênero da categoria<select name="genero" required><option value="">Selecione o gênero</option><option value="masculino">Masculino</option><option value="feminino">Feminino</option></select></label>
+            <p class="category-form-help">Ataque, defesa e time especial serão criados automaticamente para esta categoria.</p><button class="athlete-button" type="submit">Criar categoria</button>
+        </form>
+        <form class="category-config-card athlete-form" method="post" action="atletas.php?action=categories">
+            <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="add-position">
+            <div class="category-form-heading"><span>02</span><div><h2>Nova posição</h2><p>Associe cada posição a uma categoria e a um side.</p></div></div>
+            <label>Categoria<select name="categoria_id" required><option value="">Selecione uma categoria</option><?php foreach ($categoryOptions as $category): ?><option value="<?= $category['id'] ?>"><?= $escape($category['modalidade']) ?> · <?= $category['genero'] === 'masculino' ? 'Masculino' : 'Feminino' ?></option><?php endforeach; ?></select></label>
+            <label>Side<select name="side" required><option value="">Selecione um side</option><option value="ataque">Ataque</option><option value="defesa">Defesa</option><option value="time_especial">Time especial</option></select></label>
+            <label>Nome da posição<input name="nome_posicao" maxlength="60" placeholder="Ex.: QB, LB ou kicker" required></label>
+            <p class="category-form-help">O nome da posição deve ser único na categoria, mesmo em sides diferentes.</p><button class="athlete-button" type="submit">Adicionar posição</button>
+        </form>
+        <form class="category-config-card athlete-form" method="post" action="atletas.php?action=categories">
+            <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="add-role">
+            <div class="category-form-heading"><span>03</span><div><h2>Novo cargo</h2><p>Cadastre uma função para vincular a pessoas em cada categoria.</p></div></div>
+            <label>Nome do cargo<input name="nome_cargo" maxlength="60" placeholder="Ex.: Preparador físico" required></label>
+            <p class="category-form-help">Um atleta pode ter mais de um cargo, e os cargos podem mudar de uma categoria para outra.</p><button class="athlete-button" type="submit">Cadastrar cargo</button>
+        </form>
+    </div>
+    <section class="category-catalog"><h2>Catálogo atual</h2>
+    <?php foreach ($categoryOptions as $category): ?>
+        <article class="category-catalog-card"><h3><?= $escape($category['modalidade']) ?> <span><?= $category['genero'] === 'masculino' ? 'Masculino' : 'Feminino' ?></span></h3>
+            <div class="category-catalog-sides"><?php foreach ($category['sides'] as $side): ?><section><h4><?= $escape($side['nome']) ?></h4><?php if ($side['posicoes'] === []): ?><p>Nenhuma posição cadastrada</p><?php else: ?><ul><?php foreach ($side['posicoes'] as $position): ?><li><?= $escape($position['nome']) ?></li><?php endforeach; ?></ul><?php endif; ?></section><?php endforeach; ?></div>
+        </article>
+    <?php endforeach; ?>
+    </section>
+    <section class="cargo-catalog"><h2>Cargos cadastrados</h2>
+        <article class="cargo-catalog-card"><div class="cargo-chip-list">
+            <?php foreach ($roles as $role): ?><span class="cargo-chip"><?= $escape($role['nome']) ?></span><?php endforeach; ?>
+        </div></article>
+    </section>
+</main>
+</body>
+</html>
+FLAG_SETUP_ATLETAS_CATEGORIES_VIEW,
+    'modules/atletas/Assets/atletas.js' => <<<'FLAG_SETUP_ATLETAS_JS'
+(() => {
+    'use strict';
+
+    const genderField = document.getElementById('athlete-gender');
+    if (!genderField) return;
+
+    const categorySections = document.querySelectorAll('[data-category-gender]');
+    const updateCategories = () => {
+        const selectedGender = genderField.value;
+        categorySections.forEach((section) => {
+            const compatible = section.dataset.categoryGender === selectedGender;
+            section.querySelectorAll('.athlete-player-control').forEach((control) => {
+                control.disabled = !compatible;
+            });
+            section.querySelectorAll('[data-player-role="true"]').forEach((control) => {
+                control.disabled = !compatible;
+            });
+        });
+    };
+
+    categorySections.forEach((section) => {
+        section.addEventListener('change', (event) => {
+            const control = event.target;
+            const linkToggle = section.querySelector('.category-link-toggle');
+            if (!linkToggle || !(control instanceof HTMLElement)) return;
+
+            if (control === linkToggle && !linkToggle.checked) {
+                section.querySelectorAll('.category-assignment-control').forEach((assignment) => {
+                    if (assignment instanceof HTMLInputElement && assignment.type === 'checkbox') {
+                        assignment.checked = false;
+                    } else if (assignment instanceof HTMLSelectElement) {
+                        assignment.value = '';
+                    }
+                });
+                return;
+            }
+
+            if (control.matches('.category-assignment-control')
+                && ((control instanceof HTMLInputElement && control.checked)
+                    || (control instanceof HTMLSelectElement && control.value !== ''))) {
+                linkToggle.checked = true;
+            }
+        });
+    });
+
+    genderField.addEventListener('change', updateCategories);
+    updateCategories();
+})();
+FLAG_SETUP_ATLETAS_JS,
+];
+
 $templates['assets/css/app.css'] = str_replace(
     '.admin-content>p:last-child{color:var(--muted);line-height:1.7}',
     '.admin-content>p:last-child{color:var(--muted);line-height:1.7}.main-nav .nav-login,.main-nav .nav-login:hover{color:#fff}@media(max-width:700px){.main-nav{gap:12px}.main-nav a:first-child{display:none}.nav-login{min-height:42px;padding:0 14px}}',
     $templates['assets/css/app.css']
 );
-$templates['assets/css/app.css'] .= '.hero h1 span{color:#7fc5f2}.button,.main-nav .nav-login{color:#fff}.button:hover,.main-nav .nav-login:hover,.hero-ball{color:var(--navy)}';
+$templates['assets/css/app.css'] .= '.admin-card{max-width:560px;margin-top:32px;padding:24px;border:1px solid var(--line);border-radius:6px;background:#fff}.admin-card h2{margin:0 0 8px;font-size:22px}.admin-card p{margin:0 0 20px;color:var(--muted);line-height:1.6}.admin-card .button{min-height:44px}.hero h1 span{color:#7fc5f2}.button,.main-nav .nav-login{color:#fff}.button:hover,.main-nav .nav-login:hover,.hero-ball{color:var(--navy)}';
 
 function flagInstallInsideRoot(string $path): bool
 {
@@ -1549,7 +2895,7 @@ if (in_array('--migrate-local-config', $arguments, true)) {
     }
     $privateConfig = [
         'app' => array_replace(['name' => 'Sistema FLAG', 'version' => '0.1.0', 'environment' => 'development', 'debug' => false], is_array($legacyConfig['app'] ?? null) ? $legacyConfig['app'] : []),
-        'assets' => array_replace(['version' => '1.0.0'], is_array($legacyConfig['assets'] ?? null) ? $legacyConfig['assets'] : []),
+        'assets' => array_replace(['version' => '1.0.4'], is_array($legacyConfig['assets'] ?? null) ? $legacyConfig['assets'] : []),
         'database' => array_replace(['url' => $url, 'url_environment_variable' => 'DATABASE_URL', 'sslmode' => 'require', 'connect_timeout' => 20], is_array($legacyConfig['database'] ?? null) ? $legacyConfig['database'] : []),
     ];
     if (is_string($url)) {
@@ -1615,6 +2961,43 @@ if (in_array('--migrate-auth', $arguments, true)) {
             $db->rollBack();
         }
         fwrite(STDERR, '[ERRO] A migration não foi aplicada. Confira o banco e a migration; detalhes de conexão foram ocultados.' . PHP_EOL);
+        exit(1);
+    }
+}
+if (in_array('--migrate-athletes', $arguments, true)) {
+    require_once $root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'Core' . DIRECTORY_SEPARATOR . 'Database.php';
+    $migrationPath = $root . DIRECTORY_SEPARATOR . 'modules' . DIRECTORY_SEPARATOR . 'atletas'
+        . DIRECTORY_SEPARATOR . 'Database' . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '001_atletas.sql';
+    $resolvedMigration = realpath($migrationPath);
+    $migrationPrefix = $root . DIRECTORY_SEPARATOR . 'modules' . DIRECTORY_SEPARATOR . 'atletas' . DIRECTORY_SEPARATOR;
+    if ($resolvedMigration === false || is_link($migrationPath)
+        || !str_starts_with($resolvedMigration, $migrationPrefix) || !is_file($resolvedMigration)) {
+        fwrite(STDERR, '[ERRO] Migration de atletas não encontrada dentro do projeto.' . PHP_EOL);
+        exit(1);
+    }
+    $sql = file_get_contents($resolvedMigration);
+    if (!is_string($sql) || trim($sql) === '') {
+        fwrite(STDERR, '[ERRO] Migration de atletas vazia ou ilegível.' . PHP_EOL);
+        exit(1);
+    }
+    $statementNumber = 0;
+    try {
+        $db = \App\Core\Database::connection();
+        $db->beginTransaction();
+        foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
+            $statementNumber++;
+            $db->exec($statement);
+        }
+        $db->commit();
+        echo '[OK] Estrutura do módulo de atletas criada/validada no banco selecionado.' . PHP_EOL;
+    } catch (Throwable $exception) {
+        if (isset($db) && $db->inTransaction()) {
+            $db->rollBack();
+        }
+        $errorInfo = $exception instanceof PDOException ? ($exception->errorInfo ?? []) : [];
+        $sqlState = (string) ($errorInfo[0] ?? $exception->getCode());
+        fwrite(STDERR, '[ERRO] Migration revertida na instrução ' . $statementNumber
+            . ' (SQLSTATE ' . $sqlState . '). Nenhuma alteração foi mantida.' . PHP_EOL);
         exit(1);
     }
 }
@@ -1695,4 +3078,4 @@ if (in_array('--check-db', $arguments, true)) {
 }
 
 echo PHP_EOL . '[OK] Instalador único concluído. Arquivos existentes foram preservados.' . PHP_EOL;
-echo 'Opções adicionais: --migrate-local-config, --migrate-auth, --create-admin e --check-db.' . PHP_EOL;
+echo 'Opções adicionais: --migrate-local-config, --migrate-auth, --migrate-athletes, --create-admin e --check-db.' . PHP_EOL;

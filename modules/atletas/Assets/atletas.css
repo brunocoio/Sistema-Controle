@@ -1,0 +1,102 @@
+.athletes-page{max-width:1040px}
+.athletes-page h1{margin:0 0 8px}
+.athletes-page>.eyebrow{margin-bottom:12px}
+.athletes-lead{margin:0 0 28px;color:var(--muted);font-size:16px;line-height:1.65}
+.athlete-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin:28px 0 14px;padding:20px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 8px 24px rgba(29,41,80,.05)}
+.athlete-search{display:grid;flex:1;gap:8px;max-width:620px}
+.athlete-search>label,.athlete-form>label,.athlete-fields>label{display:grid;gap:7px;color:var(--ink);font-size:13px;font-weight:750}
+.athlete-search>div{display:flex;gap:9px}
+.athlete-search input,.athlete-search select,.athlete-form input:not([type=checkbox]):not([type=file]),.athlete-form select,.athlete-form textarea{width:100%;min-height:46px;padding:10px 12px;border:1px solid #cbd2df;border-radius:5px;background:#fff;color:var(--ink);font:inherit}
+.athlete-search input{flex:1;min-width:120px}
+.athlete-search select{width:auto;min-width:130px}
+.athlete-search input:focus,.athlete-search select:focus,.athlete-form input:focus,.athlete-form select:focus,.athlete-form textarea:focus{outline:3px solid rgba(40,121,182,.16);border-color:var(--blue)}
+.athlete-button{display:inline-flex;min-height:44px;align-items:center;justify-content:center;padding:0 16px;border:1px solid var(--blue);border-radius:5px;background:var(--blue);color:#fff;font:inherit;font-size:13px;font-weight:750;text-decoration:none;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.athlete-button:hover{border-color:var(--navy);background:var(--navy);color:#fff}
+.athlete-button.button-outline{border:1px solid var(--blue);background:#fff;color:var(--blue)}
+.athlete-button.button-outline:hover{background:#f1f7fc;color:var(--navy)}
+.athlete-toolbar-actions,.athlete-empty-actions{display:flex;flex-wrap:wrap;gap:9px}
+.athlete-privacy{margin:12px 0 18px;padding:11px 14px;border-left:3px solid var(--blue);background:#f1f7fc;color:#44536b;font-size:12px;line-height:1.55}
+.athlete-result-count{margin:18px 0 10px;color:var(--muted);font-size:13px;font-weight:700}
+.athlete-list{display:grid;gap:12px}
+.athlete-card{display:grid;grid-template-columns:72px minmax(0,1fr) auto;align-items:center;gap:16px;padding:18px;border:1px solid var(--line);border-radius:7px;background:#fff}
+.athlete-photo{width:72px;height:72px;object-fit:cover;border-radius:7px;background:#f1f3f6}
+.athlete-photo-empty{display:grid;place-items:center;font-size:27px}
+.athlete-main{min-width:0}
+.athlete-main h2{margin:0 0 5px;font-size:18px;line-height:1.35}
+.athlete-main h2 span{color:var(--muted);font-size:15px;font-weight:500}
+.athlete-main p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}
+.athlete-main .athlete-assignment{margin-top:5px;font-size:12px}
+.athlete-status{justify-self:end;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800}
+.athlete-status.is-active{background:#e8f5ee;color:#216b42}
+.athlete-status.is-inactive{background:#f1f2f4;color:#596273}
+.athlete-card>.athlete-link,.athlete-link{color:var(--blue);font-size:13px;font-weight:750;text-decoration:none}
+.athlete-link:hover{text-decoration:underline}
+.athlete-card form{margin:0}
+.athlete-text-button{padding:4px;border:0;background:transparent;color:#596273;font:inherit;font-size:12px;text-decoration:underline;cursor:pointer}
+.athlete-empty{display:grid;justify-items:center;gap:12px;padding:42px 22px;border:1px dashed #b9c6d8;border-radius:8px;background:#f8fafc;text-align:center}
+.athlete-empty-icon{display:grid;width:54px;height:54px;place-items:center;border-radius:50%;background:#e9f3fb;font-size:25px}
+.athlete-empty h2{margin:0;font-size:20px;letter-spacing:-.02em}
+.athlete-empty p{max-width:520px;margin:0;color:var(--muted);font-size:14px;line-height:1.65}
+.athlete-empty-actions{justify-content:center;margin-top:5px}
+.athlete-form{display:grid;gap:18px;margin:24px 0;padding:24px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 8px 24px rgba(29,41,80,.05)}
+.athlete-form fieldset{min-width:0;margin:0;padding:20px;border:1px solid #e1e5ec;border-radius:7px;background:#fff}
+.athlete-form legend{padding:0 8px;color:var(--navy);font-size:16px;font-weight:800}
+.athlete-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.athlete-form small{color:var(--muted);font-size:12px;font-weight:450;line-height:1.5}
+.athlete-form input[type=checkbox]{width:18px;height:18px;accent-color:var(--blue)}
+.athlete-form input[type=file]{width:100%;padding:12px;border:1px dashed #b9c6d8;border-radius:5px;background:#f8fafc;color:var(--ink);font:inherit}
+.athlete-form textarea{min-height:110px;resize:vertical}
+.athlete-wide{grid-column:1/-1}
+.athlete-errors{margin:18px 0;padding:14px 18px;border:1px solid #e7b8bb;border-radius:6px;background:#fff3f3;color:#801b22;font-size:14px;line-height:1.6}
+.athlete-errors p{margin:0 0 5px;font-weight:800}
+.athlete-errors ul{margin:5px 0 0;padding-left:20px}
+.athlete-actions{display:flex;align-items:center;gap:14px;padding-top:4px}
+.athlete-photo-preview{display:flex;align-items:center;gap:14px}
+.athlete-photo-preview img{width:100px;height:100px;object-fit:cover;border-radius:8px}
+.athlete-photo-preview label{display:flex;align-items:center;gap:8px;font-size:13px}
+.athlete-category-choice{margin-top:16px;padding:16px;border:1px solid var(--line);border-radius:6px;background:#f8fafc}
+.athlete-category-toggle{display:flex!important;align-items:center;gap:9px;font-size:14px!important}
+.athlete-category-toggle input,.athlete-position input{width:18px;height:18px;accent-color:var(--blue)}
+.athlete-side-groups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+.athlete-side{min-width:0;padding:12px;border:1px solid var(--line);border-radius:5px;background:#fff}
+.athlete-side legend{font-size:13px}
+.athlete-position{display:flex!important;align-items:center;gap:8px;margin:8px 0}
+.athlete-assignment{margin-top:5px!important;font-size:12px!important}
+.category-config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:24px 0 40px}
+.category-config-card{align-content:start;margin:0;padding:22px}
+.category-form-heading{display:flex;align-items:flex-start;gap:12px;margin-bottom:2px}
+.category-form-heading>span{display:grid;width:34px;height:34px;flex:none;place-items:center;border-radius:50%;background:#e9f3fb;color:var(--blue);font-size:12px;font-weight:850}
+.category-form-heading h2{margin:0;font-size:19px}
+.category-form-heading p{margin:5px 0 0;color:var(--muted);font-size:13px;line-height:1.5}
+.category-form-help{margin:0;padding:10px 12px;border-radius:5px;background:#f1f7fc;color:#44536b;font-size:12px;line-height:1.55}
+.category-config-card>.athlete-button{justify-self:start;margin-top:0}
+.category-catalog{display:grid;gap:12px}
+.category-catalog>h2{margin:0}
+.category-catalog-card{padding:18px;border:1px solid var(--line);border-radius:7px;background:#fff}
+.category-catalog-card h3{margin:0 0 14px}
+.category-catalog-card h3 span{margin-left:6px;color:var(--muted);font-size:13px;font-weight:500}
+.category-catalog-sides{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.category-catalog-sides section{padding:12px;border-radius:5px;background:#f7f8fa}
+.category-catalog-sides h4{margin:0 0 7px;font-size:13px}
+.category-catalog-sides ul,.category-catalog-sides p{margin:0;padding-left:18px;color:var(--muted);font-size:13px;line-height:1.6}
+.category-catalog-sides p{padding:0}
+.athlete-category-fields{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(0,1.5fr);gap:14px;margin-top:16px}
+.athlete-role-hint{margin:12px 0 0;padding:9px 11px;border-left:3px solid var(--blue);background:#f1f7fc;color:#44536b;font-size:12px;line-height:1.55}
+.athlete-player-control:disabled{background:#f1f2f4;color:#737b89;cursor:not-allowed}
+.athlete-jersey-field{display:grid;align-content:start;gap:7px;color:var(--ink);font-size:13px;font-weight:750}
+.athlete-jersey-field select{width:100%;min-height:42px;padding:8px 10px;border:1px solid #cbd2df;border-radius:5px;background:#fff;color:var(--ink);font:inherit}
+.athlete-role-group{min-width:0;margin:0;padding:10px 12px;border:1px solid #e1e5ec;border-radius:5px;background:#fff}
+.athlete-role-group legend{font-size:12px}
+.athlete-role-options{display:flex;flex-wrap:wrap;gap:8px}
+.athlete-role-option{display:flex!important;align-items:center;gap:6px;padding:6px 9px;border:1px solid #e1e5ec;border-radius:999px;background:#f8fafc;font-size:12px!important;font-weight:600!important}
+.athlete-role-option input{width:16px!important;height:16px!important}
+.athlete-category-summary{margin-top:7px!important;padding-top:6px;border-top:1px solid #edf0f4}
+.athlete-category-summary strong{color:var(--navy)}
+.cargo-catalog{display:grid;gap:12px;margin-top:32px}
+.cargo-catalog>h2{margin:0}
+.cargo-catalog-card{padding:16px;border:1px solid var(--line);border-radius:7px;background:#fff}
+.cargo-chip-list{display:flex;flex-wrap:wrap;gap:8px}
+.cargo-chip{padding:7px 11px;border-radius:999px;background:#f1f7fc;color:var(--navy);font-size:12px;font-weight:700}
+@media(max-width:900px){.category-config-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.category-config-grid>:last-child{grid-column:1/-1}}
+@media(max-width:760px){.athlete-toolbar{align-items:stretch;flex-direction:column}.athlete-toolbar-actions{align-items:stretch}.athlete-toolbar-actions .athlete-button{align-self:flex-start}.category-config-grid,.athlete-side-groups,.category-catalog-sides{grid-template-columns:1fr}.category-config-grid>:last-child{grid-column:auto}.athlete-category-fields{grid-template-columns:1fr}}
+@media(max-width:560px){.athletes-page{width:min(100% - 32px,540px);margin:34px auto}.athlete-toolbar,.athlete-form{padding:16px}.athlete-search>div{display:grid;grid-template-columns:1fr 1fr}.athlete-search input{grid-column:1/-1}.athlete-search select,.athlete-search button{width:100%}.athlete-card{grid-template-columns:56px minmax(0,1fr);gap:12px;padding:14px}.athlete-photo{width:56px;height:56px}.athlete-status{grid-column:2;justify-self:start}.athlete-card>.athlete-link,.athlete-card form{grid-column:2}.athlete-fields{grid-template-columns:1fr}.athlete-wide{grid-column:auto}.athlete-form fieldset{padding:16px}.athlete-actions{align-items:stretch;flex-direction:column}.athlete-actions .athlete-button{width:100%}}

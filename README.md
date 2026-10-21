@@ -1671,3 +1671,16 @@ Todo script de setup deverá:
 Quando uma etapa precisar modificar arquivo já existente, deverá usar um script de atualização separado ou um modo explícito, mostrar exatamente o alvo e preservar uma cópia/backup antes da alteração. Não introduzir sobrescrita silenciosa.
 
 ---
+## Módulo de atletas
+
+O cadastro administrativo mantém nome, apelido, gênero para elegibilidade, data de nascimento, celular, RG, CPF, e-mail, contato de emergência (nome, celular e parentesco), tipo sanguíneo, alergias, foto e status ativo/inativo. O CPF é único. A idade é calculada a partir da data de nascimento.
+
+Uma pessoa pode ter vários vínculos de categoria, cargos, posições e números de camisa. Camisa (0–99) é única dentro de cada categoria; X5 e X8 mantêm listas independentes, e o formulário mostra somente os números disponíveis. CPF também é único no banco.
+
+Cada posição pertence a uma categoria e a um side específico (ataque, defesa ou time especial), e seu nome não pode se repetir em nenhum side da mesma categoria. O vínculo entre categorias e posições impede que posições de X5 sejam confundidas com as de X8. Cargos são cadastrados em um catálogo e podem ser combinados por categoria; os cargos iniciais são Staff, Capitão, Treinador, Atleta, Head Coach e Manager. Uma pessoa pode, por exemplo, ser atleta e treinadora no X8 e capitã no X5. Cargos técnicos podem ser associados a categorias de outro gênero; camisas, posições e o cargo Atleta exigem gênero esportivo compatível.
+
+A configuração administrativa permite adicionar categorias, posições e cargos sem alterar o código. A migration prepara X5 e X8 masculinas e femininas; posições iniciais são semeadas conforme o exemplo informado para X5 e X8 masculinos.
+
+A lista exibe apenas dados esportivos e status; documentos, saúde e contatos pessoais ficam restritos à edição administrativa. A foto enviada é validada, redimensionada, convertida para JPEG e armazenada como BYTEA no PostgreSQL, sem depender do armazenamento efêmero da hospedagem. Fotos aceitam até 5 MB no envio e são limitadas a 500 KB após otimização.
+
+A estrutura é gerada pelo instalador único. Após aplicar primeiro a migration de autenticação, aplique a migration de atletas explicitamente com `php setup/install.php --migrate-athletes`. O comando altera o banco selecionado em `config/conf.php` ou `DATABASE_URL`; não é executado automaticamente.

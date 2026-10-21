@@ -26,8 +26,13 @@ final class View
         } elseif (str_starts_with($path, './assets/')) {
             $prefix = './';
             $path = substr($path, 2);
+        } elseif (str_starts_with($path, '../modules/')) {
+            $prefix = '../';
+            $path = substr($path, 3);
         }
-        if (preg_match('#\Aassets/[A-Za-z0-9._/-]+\z#D', $path) !== 1) {
+        $isGlobalAsset = preg_match('#\Aassets/[A-Za-z0-9._/-]+\z#D', $path) === 1;
+        $isModuleAsset = preg_match('#\Amodules/[a-z0-9-]+/Assets/[A-Za-z0-9._/-]+\z#D', $path) === 1;
+        if (!$isGlobalAsset && !$isModuleAsset) {
             throw new RuntimeException('Caminho de recurso local inválido.');
         }
         foreach (explode('/', $path) as $segment) {

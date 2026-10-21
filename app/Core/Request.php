@@ -41,6 +41,15 @@ final class Request
             $path = substr($path, strlen($basePath));
         }
 
+        // The homepage is served by index.php, so both / and /index.php
+        // must resolve to the same route in Apache/Laragon and Vercel.
+        if (preg_match('#/index\.php\z#i', $path) === 1) {
+            $path = substr($path, 0, -strlen('/index.php'));
+            if ($path === '') {
+                $path = '/';
+            }
+        }
+
         $path = preg_replace('#/+#', '/', $path) ?? '/';
         $path = '/' . trim($path, '/');
         if ($path !== '/') {
