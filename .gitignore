@@ -58,3 +58,6 @@ Thumbs.db
 *.temp
 *.swp
 *.swo
+
+# Private configuration
+/config/conf.php

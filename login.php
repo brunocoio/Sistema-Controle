@@ -2,11 +2,8 @@
 
 declare(strict_types=1);
 
-/**
- * Sistema FLAG
- *
- * Entrada de autenticação.
- *
- * A implementação será adicionada
- * nas próximas etapas do setup.
- */
+$config = require __DIR__ . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'bootstrap.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'modules' . DIRECTORY_SEPARATOR . 'autenticacao'
+    . DIRECTORY_SEPARATOR . 'Controllers' . DIRECTORY_SEPARATOR . 'LoginController.php';
+
+(new \Modules\Autenticacao\Controllers\LoginController())->handle($config);

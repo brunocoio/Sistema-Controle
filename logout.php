@@ -2,11 +2,8 @@
 
 declare(strict_types=1);
 
-/**
- * Sistema FLAG
- *
- * Encerramento da sessão.
- *
- * A implementação será adicionada
- * nas próximas etapas do setup.
- */
+$config = require __DIR__ . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'bootstrap.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'modules' . DIRECTORY_SEPARATOR . 'autenticacao'
+    . DIRECTORY_SEPARATOR . 'Controllers' . DIRECTORY_SEPARATOR . 'LogoutController.php';
+
+(new \Modules\Autenticacao\Controllers\LogoutController())->handle();

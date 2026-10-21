@@ -6,6 +6,8 @@ Sistema de gestão para uma organização de FLAG Football, desenvolvido com PHP
 > **Versão do sistema:** 0.1.0  
 > **Status:** Arquitetura inicial / em desenvolvimento  
 > **Ambiente local atual:** Laragon  
+> **Ambientes de validação:** Vercel (aplicação PHP conectada a um banco PostgreSQL gerenciado)
+> **Banco escolhido:** PostgreSQL gerenciado pelo Neon via Vercel Marketplace (plano Free para desenvolvimento/homologação, se disponível e adequado)
 > **Caminho atual:** `C:\laragon\www\testes\control`
 
 ---
@@ -147,6 +149,44 @@ Não será utilizado Font Awesome como dependência padrão.
 - PHP 8.x
 - Banco de dados compatível com a arquitetura definida
 
+## Validação, publicação e banco de dados
+
+- O código PHP será publicado na Vercel para testes e homologação.
+- O banco será configurado desde o início da homologação e será um serviço gerenciado conectado à aplicação hospedada na Vercel; a Vercel executa a aplicação, enquanto o serviço escolhido mantém os dados.
+- O banco escolhido para desenvolvimento/homologação é PostgreSQL gerenciado pelo Neon, integrado via Vercel Marketplace. Usar Neon Free se estiver disponível na conta e se seus limites forem adequados; confirmar plano, região, limites e cobrança no painel antes de provisionar.
+- PostgreSQL será o mecanismo de referência do projeto, inclusive no desenvolvimento local, salvo decisão arquitetural futura documentada. A escolha considera suporte a transações, relacionamentos e PDO_PGSQL.
+- O banco e o plano de produção devem ser revistos antes da entrada em produção, incluindo limites, backups e estratégia de recuperação.
+- A camada de acesso a dados deverá manter Controllers e módulos independentes do mecanismo de persistência, permitindo configurar cada ambiente sem espalhar diferenças pelo código.
+- A escolha do banco de homologação deve ocorrer antes da implementação de funcionalidades persistentes, para validar a compatibilidade e evitar retrabalho.
+- As migrations serão a fonte oficial da evolução do esquema e deverão permitir uma transição controlada entre ambientes.
+
+Fluxo previsto:
+
+```text
+Desenvolvimento local
+        ↓
+Escolha e configuração do banco gerenciado
+        ↓
+Publicação PHP na Vercel conectada ao banco
+        ↓
+Testes e homologação com persistência
+        ↓
+Revisão do plano e da configuração de produção
+        ↓
+Migração e entrada em produção
+```
+
+Segredos locais ficam em config/conf.php, ignorado pelo Git. Na Vercel, credenciais e URLs serão fornecidas pelo ambiente (DATABASE_URL). Não armazenar segredos no Git nem em scripts de setup. A estratégia de persistência de arquivos enviados também deverá ser definida separadamente, pois o sistema não deve depender do disco local da hospedagem para dados que precisem sobreviver a novos deploys.
+
+### Banco PostgreSQL
+
+- `php setup/install.php` prepara configuração central, conexão PDO PostgreSQL e extensão PDO_PGSQL para a imagem Vercel, criando apenas arquivos ausentes.
+- No painel da Vercel, provisionar PostgreSQL pelo Marketplace com Neon, selecionar o plano Free se estiver disponível, revisar região, limites e faturamento e conectar o recurso aos ambientes desejados.
+- O acesso da aplicação será feito por PDO com o driver `pgsql`; no Laragon, PDO_PGSQL deve estar habilitado na versão de PHP 8.x em uso.
+- A configuração local fica centralizada em `config/conf.php`, ignorado pelo Git. A URL local fica nesse arquivo; na Vercel, `DATABASE_URL` é fornecida pelo Neon.
+- `config/conf_sample.php` documenta as chaves da configuração e usa `xxx` nos valores secretos. Em produção, a aplicação lê `DATABASE_URL` da Vercel; erros nunca devem expor credenciais.
+- As migrations serão escritas para PostgreSQL e executadas explicitamente; não executar migrations destrutivas automaticamente durante cada requisição ou deploy.
+
 ## Não utilizar
 
 O projeto não utilizará:
@@ -165,7 +205,31 @@ O projeto não utilizará:
 
 ---
 
-# 4. Compatibilidade
+# 4. Processo de criação do projeto
+
+As pastas e os arquivos de cada etapa devem ser criados pelos scripts correspondentes na pasta `setup/`. Antes de implementar uma etapa, deve-se criar ou atualizar seu script de setup, executá-lo e conferir os arquivos gerados no projeto.
+
+Os scripts devem ser seguros para reexecução e não sobrescrever alterações existentes sem uma ação explícita. Quando uma etapa exigir atualizar arquivos já criados, o script deverá identificar claramente o que será atualizado e preservar o trabalho manual.
+
+Fluxo esperado:
+
+```text
+Definir a etapa
+      ↓
+Criar/atualizar o script em setup/
+      ↓
+Executar o script
+      ↓
+Revisar os arquivos gerados
+      ↓
+Implementar e validar a etapa
+```
+
+Cada script deve documentar objetivo, pré-requisitos, arquivos criados ou alterados e comando de execução. A ordem das etapas deve permanecer explícita no README.
+
+---
+
+# 5. Compatibilidade
 
 O código deverá ser desenvolvido para PHP 8.x.
 
@@ -188,7 +252,7 @@ O código deverá permanecer legível para desenvolvedores que estejam entrando 
 
 ---
 
-# 5. Diretório atual
+# 7. Diretório atual
 
 O projeto será iniciado no ambiente local em:
 
@@ -200,7 +264,7 @@ Essa pasta será considerada a raiz do projeto.
 
 ---
 
-# 6. Estrutura geral
+# 8. Estrutura geral
 
 Estrutura inicial prevista:
 
@@ -267,7 +331,7 @@ control/
 
 ---
 
-# 7. Configurações centralizadas
+# 9. Configurações centralizadas
 
 As configurações da aplicação deverão ser centralizadas.
 
@@ -306,14 +370,9 @@ return [
         'url' => 'http://localhost/control',
     ],
 
+    // Driver e credenciais serão definidos quando a persistência de cada ambiente for decidida.
     'database' => [
-        'driver' => 'mysql',
-        'host' => '127.0.0.1',
-        'port' => 3306,
-        'database' => 'flag',
-        'username' => 'root',
-        'password' => '',
-        'charset' => 'utf8mb4',
+        'driver' => null,
     ],
 
     'session' => [
@@ -334,7 +393,7 @@ O objetivo é ter **uma única referência de configuração**, organizada por c
 
 ---
 
-# 8. Front Controller
+# 10. Front Controller
 
 O `index.php` será o ponto de entrada principal da aplicação.
 
@@ -1537,11 +1596,78 @@ A implementação deverá seguir aproximadamente esta ordem:
 ```
 ---
 
-# 49. Estrutura estup
+# 49. Setup do projeto
 
-Pasta setup contem os arquivos para criar toda a estrutura
+A estrutura, os arquivos-base, a configuração central, o Core, o Router e o layout público são preparados por um único instalador:
 
 ```text
-php setup/01-estrutura.php**
+php setup/install.php
 ```
+
+O instalador cria apenas arquivos-base ausentes e preserva arquivos existentes. Não cria backups temporários nem altera o banco automaticamente.
+
+Opções disponíveis (migrate-auth altera apenas a estrutura aditiva de autenticação no banco selecionado; create-admin requer migration aplicada):
+
+```text
+php setup/install.php --migrate-local-config
+php setup/install.php --migrate-auth
+php setup/install.php --create-admin
+php setup/install.php --check-db
+```
+
+--migrate-local-config migra a configuração antiga e a URL de .env.local para config/conf.php, validando antes de remover os arquivos legados. --check-db valida a configuração local ou DATABASE_URL do ambiente com SELECT 1.
+
+O layout público fica em app/Core/Views/Layout/; a página inicial fica em app/Core/Views/Pages/Public/; os estilos globais ficam em assets/css/app.css.
+
+## Autenticação, segurança e desempenho
+
+O Core fornece sessão, CSRF e verificação de identidade; o módulo modules/autenticacao reúne controllers, views e migration. O login usa consultas PDO parametrizadas, password_hash/password_verify, mensagens genéricas para falhas, limitação temporária de tentativas por IP e e-mail e revalidação do usuário/perfil no banco em cada acesso protegido. Sessões usam cookie HttpOnly, SameSite=Lax, Secure em HTTPS e armazenamento PostgreSQL para funcionar em instâncias Vercel distintas.
+
+A migration só é aplicada por comando explícito e cria tabelas/índices sem apagar dados:
+- php setup/install.php --migrate-auth
+
+Para criar um administrador local de teste após a migration, execute `php setup/install.php --create-admin`. Sem `FLAG_ADMIN_PASSWORD`, o instalador cria automaticamente `Root Teste` (`root@localhost.test`) com a senha temporária `RootTest2026`, destinada exclusivamente a testes locais. Essas credenciais padrão são bloqueadas quando `APP_ENV=production` ou `VERCEL=1`. Se a conta já existir, o instalador não altera seu cadastro nem sua senha. Para criar outro administrador local ou de produção, defina `FLAG_ADMIN_PASSWORD` com uma senha temporária de pelo menos 8 caracteres e informe nome e e-mail. Não envie senhas pelo chat nem use a senha padrão fora do ambiente local.
+
+As telas usam HTML semântico, formulários rotulados, layout responsivo, feedback acessível e cabeçalhos de segurança. Login e administração usam no-store e noindex. Não carregam fontes, bibliotecas ou scripts de terceiros sem necessidade.
+
+### Regras para imagens e estabilidade visual
+
+- Converter imagens fotográficas para WebP; preferir SVG para logos e ícones vetoriais.
+- Reservar o espaço de cada imagem com width e height intrínsecos, além de texto alternativo útil. Isso reduz CLS e atende leitores de tela.
+- Usar picture/source com media para variantes desktop/mobile quando houver composições distintas; fornecer fallback em img.
+- Usar fetchpriority="high" e preload somente para a imagem LCP realmente crítica no início da página. Não elevar todas as imagens da primeira dobra, pois recursos concorrentes podem atrasar a imagem principal.
+- Não aplicar loading="lazy" à imagem LCP ou a qualquer imagem visível imediatamente. Aplicar loading="lazy" às imagens abaixo da dobra.
+- Usar a classe img-fluid apenas se o Bootstrap estiver realmente carregado; no momento, o projeto não depende dele e usa CSS próprio responsivo.
+
+### Regras para CSS, fontes e JavaScript
+
+- Manter CSS crítico e pequeno disponível no primeiro render. Não converter a folha principal para carregamento assíncrono sem medir: isso pode exibir conteúdo sem estilo e causar CLS. Separar CSS não crítico apenas quando houver volume que justifique o custo.
+- Quando uma fonte externa for adotada, hospedar localmente arquivos WOFF2 licenciados, declarar @font-face em CSS com font-display: swap e fazer preload somente da fonte usada acima da dobra. Evitar Google Fonts remoto e famílias/pesos não utilizados.
+- Carregar scripts próprios com defer quando não forem necessários para construir o HTML. Não atrasar o conteúdo principal dentro de uma função executada após cinco segundos ou uma interação.
+- Só carregar analytics, gerenciadores de tags, consentimento ou outros terceiros quando necessários e de acordo com o consentimento aplicável. Atrasar código não essencial após consentimento/interação; scripts de segurança e a interface de consentimento não devem ser atrasados de forma que quebrem sua finalidade.
+- Antes de inicializar um plugin opcional, verificar se sua biblioteca existe. Não adicionar jQuery/OwlCarousel apenas para utilizar essa verificação; o projeto não usa esses plugins atualmente.
+
+A página atual não contém imagens, scripts ou fontes externas; portanto, as otimizações correspondentes ficam definidas como padrão para as próximas telas. Medir Core Web Vitals/PageSpeed após cada tela com seus recursos reais e corrigir problemas observados, sem sacrificar acessibilidade nem estabilidade visual.
+
+### Versão e cache de arquivos estáticos
+
+A configuração principal é carregada de config/conf.php; app/bootstrap.php apenas valida e carrega a configuração, usando config/conf_sample.php quando o arquivo privado não existe. O modelo conf_sample é mantido no Git sem segredos. A versão dos recursos está em assets.version; ao alterar CSS, JavaScript ou imagens, incremente-a, por exemplo para 1.0.1. As referências geradas por App\Core\View::assetUrl() passam a incluir ?v=1.0.1, fazendo o navegador buscar o arquivo atualizado sem exigir limpeza manual do cache. Use o helper para URLs de arquivos dentro de assets/, nunca para URLs externas.
+
+## Padrão de segurança dos scripts
+
+Todo script de setup deverá:
+
+1. declarar compatibilidade e pré-requisitos, descrever arquivos criados/atualizados e registrar o comando de execução;
+2. resolver a raiz do projeto a partir do próprio script, nunca confiar no diretório atual do terminal;
+3. limitar gravações à raiz e às pastas previstas para a etapa, rejeitando caminhos absolutos, travessia `..` e destinos fora do projeto;
+4. criar arquivos somente quando ausentes, preservando arquivos e links existentes, salvo quando uma atualização for explicitamente solicitada e documentada;
+5. evitar funções globais com nomes genéricos que possam colidir com outros scripts; preferir nomes específicos ou funções encapsuladas;
+6. verificar resultados de criação e gravação, tratar erros claramente e não reportar sucesso quando uma operação falhar;
+7. não executar comandos destrutivos, baixar/rodar código remoto ou alterar permissões do sistema;
+8. nunca escrever credenciais, tokens ou dados reais. Configurações secretas devem ser fornecidas pelo ambiente e arquivos locais com segredos não devem ser versionados;
+9. ser seguro para reexecução: uma segunda execução não deve mudar arquivos existentes nem apagar dados;
+10. ser revisado antes da execução, e os arquivos gerados devem ser conferidos depois.
+
+Quando uma etapa precisar modificar arquivo já existente, deverá usar um script de atualização separado ou um modo explícito, mostrar exatamente o alvo e preservar uma cópia/backup antes da alteração. Não introduzir sobrescrita silenciosa.
+
 ---
