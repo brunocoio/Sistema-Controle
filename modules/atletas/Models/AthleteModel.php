@@ -314,7 +314,7 @@ final class AthleteModel
         }
     }
 
-    public function addCategory(string $modality, string $gender): void
+    public function addCategory(string $modality, string $gender): int
     {
         $db = Database::connection();
         $db->beginTransaction();
@@ -327,29 +327,34 @@ final class AthleteModel
                 VALUES (:id_attack, 'ataque', 'Ataque'), (:id_defense, 'defesa', 'Defesa'), (:id_special, 'time_especial', 'Time especial')");
             $sides->execute(['id_attack' => $id, 'id_defense' => $id, 'id_special' => $id]);
             $db->commit();
+            return (int) $id;
         } catch (Throwable $exception) {
             if ($db->inTransaction()) $db->rollBack();
             throw $exception;
         }
     }
 
-    public function addPosition(int $categoryId, string $sideCode, string $name): void
+    public function addPosition(int $categoryId, string $sideCode, string $name): int
     {
         $statement = Database::connection()->prepare(
             'INSERT INTO categoria_posicoes (categoria_id, side_id, nome)
-             SELECT categoria_id, id, :name FROM categoria_sides WHERE categoria_id = :category AND codigo = :side'
+             SELECT categoria_id, id, :name FROM categoria_sides WHERE categoria_id = :category AND codigo = :side RETURNING id'
         );
         $statement->execute(['name' => $name, 'category' => $categoryId, 'side' => $sideCode]);
-        if ($statement->rowCount() !== 1) throw new RuntimeException('Categoria ou side não encontrado.');
+        $id = $statement->fetchColumn();
+        if ($id === false) throw new RuntimeException('Categoria ou side não encontrado.');
+        return (int) $id;
     }
 
-    public function addRole(string $name): void
+    public function addRole(string $name): int
     {
         $statement = Database::connection()->prepare(
             'INSERT INTO cargos (nome) VALUES (:name) ON CONFLICT DO NOTHING RETURNING id'
         );
         $statement->execute(['name' => $name]);
-        if ($statement->fetchColumn() === false) throw new RuntimeException('Esse cargo já está cadastrado.');
+        $id = $statement->fetchColumn();
+        if ($id === false) throw new RuntimeException('Esse cargo já está cadastrado.');
+        return (int) $id;
     }
 
     public function updateCategory(int $id, string $modality, string $gender): void

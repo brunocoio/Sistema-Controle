@@ -4,12 +4,13 @@
     const configEditors = document.querySelectorAll('[data-config-editor]');
     const statusMessage = document.querySelector('[data-category-status]');
     if (statusMessage && statusMessage.textContent.trim() !== '') statusMessage.hidden = false;
-    const showCategoryMessage = (message, isError = false) => {
+    const showCategoryMessage = (message, tone = 'success') => {
         if (!statusMessage) return;
         statusMessage.textContent = message;
-        statusMessage.classList.toggle('is-error', isError);
+        statusMessage.classList.remove('is-success', 'is-warning', 'is-danger', 'is-error');
+        statusMessage.classList.add(`is-${tone}`);
         statusMessage.hidden = false;
-        if (!isError) window.setTimeout(() => { statusMessage.hidden = true; }, 4500);
+        window.setTimeout(() => { statusMessage.hidden = true; }, 4500);
     };
     const focusCatalogItem = (selector) => {
         if (!selector) return;
@@ -23,7 +24,7 @@
         const feedback = JSON.parse(sessionStorage.getItem('categoryActionFeedback') || 'null');
         if (feedback) {
             sessionStorage.removeItem('categoryActionFeedback');
-            showCategoryMessage(feedback.message || 'Alterações salvas.');
+            showCategoryMessage(feedback.message || 'Registro salvo.', feedback.tone || 'success');
             window.requestAnimationFrame(() => focusCatalogItem(feedback.selector));
         }
     } catch { sessionStorage.removeItem('categoryActionFeedback'); }
@@ -49,11 +50,11 @@
                 const anchorSelector = form.dataset.anchorSelector;
                 document.querySelector(form.dataset.removeSelector)?.remove();
                 closeDeleteDialog();
-                showCategoryMessage(result.message || 'Registro excluído.');
+                showCategoryMessage(result.message || 'Registro excluído.', 'danger');
                 focusCatalogItem(anchorSelector);
             } catch (error) {
                 closeDeleteDialog();
-                showCategoryMessage(error instanceof Error ? error.message : 'Não foi possível excluir o registro.', true);
+                showCategoryMessage(error instanceof Error ? error.message : 'Não foi possível excluir o registro.', 'error');
                 button.disabled = false;
             }
         });
@@ -97,7 +98,8 @@
             form.querySelector('[data-editor-cancel]').hidden = true;
         });
         form.addEventListener('submit', async (event) => {
-            if (!form.elements.namedItem('action').value.startsWith('update-')) return;
+            const formAction = form.elements.namedItem('action').value;
+            if (!['create-category', 'update-category', 'add-position', 'update-position', 'add-role', 'update-role'].includes(formAction)) return;
             event.preventDefault();
             try {
                 const response = await fetch(form.getAttribute('action') || window.location.href, { method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: { Accept: 'application/json' } });
@@ -105,12 +107,13 @@
                 let result;
                 try { result = JSON.parse(text); } catch { throw new Error('O servidor não retornou uma resposta válida. Atualize a página e tente novamente.'); }
                 if (!response.ok || !result.ok) throw new Error(result.message || 'Não foi possível salvar as alterações.');
-                const id = form.elements.namedItem('id').value;
-                const selector = type === 'category' ? `[data-category-row="${id}"]` : (type === 'position' ? `[data-position-row="${id}"]` : `[data-role-row="${id}"]`);
-                try { sessionStorage.setItem('categoryActionFeedback', JSON.stringify({ message: result.message || 'Alterações salvas.', selector })); } catch { /* toast and scroll are optional if storage is disabled */ }
+                const id = result.id || form.elements.namedItem('id').value;
+                const selector = result.type === 'category' ? `[data-category-row="${id}"]` : (result.type === 'position' ? `[data-position-row="${id}"]` : `[data-role-row="${id}"]`);
+                const isUpdate = result.action === 'update';
+                try { sessionStorage.setItem('categoryActionFeedback', JSON.stringify({ message: result.message || (isUpdate ? 'Alterações salvas.' : 'Registro cadastrado.'), selector, tone: isUpdate ? 'warning' : 'success' })); } catch { /* optional feedback when storage is disabled */ }
                 window.location.reload();
             } catch (error) {
-                showCategoryMessage(error instanceof Error ? error.message : 'Não foi possível salvar as alterações.', true);
+                showCategoryMessage(error instanceof Error ? error.message : 'Não foi possível salvar as alterações.', 'error');
             }
         });
     });
@@ -121,7 +124,7 @@
 
     document.querySelectorAll('[data-delete-config]').forEach((form) => form.addEventListener('submit', async (event) => {
         event.preventDefault();
-        if (!(deleteDialog instanceof HTMLDialogElement)) return showCategoryMessage('Não foi possível abrir a confirmação. Atualize a página.', true);
+        if (!(deleteDialog instanceof HTMLDialogElement)) return showCategoryMessage('Não foi possível abrir a confirmação. Atualize a página.', 'error');
         pendingDeleteForm = form;
         const itemName = deleteDialog.querySelector('[data-delete-item-name]');
         if (itemName) itemName.textContent = form.dataset.itemName || 'este registro';
