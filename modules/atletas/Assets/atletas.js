@@ -9,7 +9,24 @@
         statusMessage.textContent = message;
         statusMessage.classList.toggle('is-error', isError);
         statusMessage.hidden = false;
+        if (!isError) window.setTimeout(() => { statusMessage.hidden = true; }, 4500);
     };
+    const focusCatalogItem = (selector) => {
+        if (!selector) return;
+        const item = document.querySelector(selector);
+        if (!item) return;
+        item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        item.classList.add('category-action-focus');
+        window.setTimeout(() => item.classList.remove('category-action-focus'), 2400);
+    };
+    try {
+        const feedback = JSON.parse(sessionStorage.getItem('categoryActionFeedback') || 'null');
+        if (feedback) {
+            sessionStorage.removeItem('categoryActionFeedback');
+            showCategoryMessage(feedback.message || 'Alterações salvas.');
+            window.requestAnimationFrame(() => focusCatalogItem(feedback.selector));
+        }
+    } catch { sessionStorage.removeItem('categoryActionFeedback'); }
     const deleteDialog = document.querySelector('[data-delete-dialog]');
     let pendingDeleteForm = null;
     const closeDeleteDialog = () => {
@@ -29,9 +46,11 @@
                 let result;
                 try { result = JSON.parse(text); } catch { throw new Error('O servidor não retornou uma resposta válida. Atualize a página e tente novamente.'); }
                 if (!response.ok || !result.ok) throw new Error(result.message || 'Não foi possível excluir o registro.');
+                const anchorSelector = form.dataset.anchorSelector;
                 document.querySelector(form.dataset.removeSelector)?.remove();
                 closeDeleteDialog();
                 showCategoryMessage(result.message || 'Registro excluído.');
+                focusCatalogItem(anchorSelector);
             } catch (error) {
                 closeDeleteDialog();
                 showCategoryMessage(error instanceof Error ? error.message : 'Não foi possível excluir o registro.', true);
@@ -86,6 +105,9 @@
                 let result;
                 try { result = JSON.parse(text); } catch { throw new Error('O servidor não retornou uma resposta válida. Atualize a página e tente novamente.'); }
                 if (!response.ok || !result.ok) throw new Error(result.message || 'Não foi possível salvar as alterações.');
+                const id = form.elements.namedItem('id').value;
+                const selector = type === 'category' ? `[data-category-row="${id}"]` : (type === 'position' ? `[data-position-row="${id}"]` : `[data-role-row="${id}"]`);
+                try { sessionStorage.setItem('categoryActionFeedback', JSON.stringify({ message: result.message || 'Alterações salvas.', selector })); } catch { /* toast and scroll are optional if storage is disabled */ }
                 window.location.reload();
             } catch (error) {
                 showCategoryMessage(error instanceof Error ? error.message : 'Não foi possível salvar as alterações.', true);
