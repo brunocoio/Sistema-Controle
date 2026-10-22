@@ -26,6 +26,10 @@
       "destination": "/admin/atletas.php?route=categories"
     },
     {
+      "source": "/admin/editar/:token",
+      "destination": "/admin/atletas.php?route=edit&token=:token"
+    },
+    {
       "source": "^/admin/atleta-([1-9][0-9]{0,17})-editar$",
       "destination": "/admin/atletas.php?route=edit&id=$1"
     },

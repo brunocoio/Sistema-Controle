@@ -34,7 +34,7 @@ final class AthleteController
                 $legacyDestination = match ($legacyAction) {
                     'new' => 'atletas-novo',
                     'categories' => 'atletas-categorias',
-                    'edit' => 'atleta-' . $this->id($_GET['id'] ?? null) . '-editar',
+                    'edit' => 'editar/' . $this->createEditToken($this->id($_GET['id'] ?? null)),
                     'photo' => 'atleta-' . $this->id($_GET['id'] ?? null) . '-foto',
                     default => null,
                 };
@@ -91,7 +91,16 @@ final class AthleteController
                 return;
             }
             if ($action === 'new' || $action === 'edit') {
-                $athlete = $action === 'edit' ? $model->find($this->id($_GET['id'] ?? null)) : null;
+                $athlete = null;
+                if ($action === 'edit') {
+                    $athleteId = $this->resolveEditToken($_GET['token'] ?? null);
+                    if ($athleteId === null && array_key_exists('id', $_GET)) {
+                        $token = $this->createEditToken($this->id($_GET['id']));
+                        header('Location: editar/' . $token, true, 303);
+                        exit;
+                    }
+                    if ($athleteId !== null) $athlete = $model->find($athleteId);
+                }
                 if ($action === 'edit' && $athlete === null) {
                     http_response_code(404);
                     exit('Cadastro não encontrado.');
@@ -480,6 +489,10 @@ final class AthleteController
     private function listing(array $config, array $athletes, string $search, bool $activeOnly, int $pageSize, int $page, int $totalPages, int $totalAthletes, array $positionSummary, array $categorySummary): void
     {
         $escape = [View::class, 'escape']; $csrfToken = Csrf::token();
+        foreach ($athletes as &$athlete) {
+            $athlete['edit_token'] = $this->createEditToken((int) $athlete['id']);
+        }
+        unset($athlete);
         $notice = $_SESSION['athlete_notice'] ?? null;
         unset($_SESSION['athlete_notice']);
         require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'index.php';
@@ -531,6 +544,32 @@ final class AthleteController
             http_response_code(400); exit('Identificador inválido.');
         }
         return (int) $value;
+    }
+
+    private function createEditToken(int $athleteId): string
+    {
+        $tokens = $_SESSION['athlete_edit_tokens'] ?? [];
+        if (!is_array($tokens)) $tokens = [];
+        $now = time();
+        foreach ($tokens as $token => $entry) {
+            if (!is_array($entry) || !is_int($entry['expires'] ?? null) || $entry['expires'] < $now) {
+                unset($tokens[$token]);
+            }
+        }
+        $token = bin2hex(random_bytes(16));
+        $tokens[$token] = ['id' => $athleteId, 'expires' => $now + 3600];
+        while (count($tokens) > 500) array_shift($tokens);
+        $_SESSION['athlete_edit_tokens'] = $tokens;
+        return $token;
+    }
+
+    private function resolveEditToken(mixed $token): ?int
+    {
+        if (!is_string($token) || preg_match('/\A[a-f0-9]{32}\z/', $token) !== 1) return null;
+        $entry = $_SESSION['athlete_edit_tokens'][$token] ?? null;
+        if (!is_array($entry) || !is_int($entry['id'] ?? null)
+            || !is_int($entry['expires'] ?? null) || $entry['expires'] < time()) return null;
+        return $entry['id'];
     }
 
     private function redirect(string $message): never
