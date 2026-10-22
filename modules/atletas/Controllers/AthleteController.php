@@ -425,8 +425,13 @@ final class AthleteController
         $target = imagecreatetruecolor($newWidth, $newHeight);
         $white = imagecolorallocate($target, 255, 255, 255); imagefill($target, 0, 0, $white);
         imagecopyresampled($target, $source, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
-        ob_start(); imagejpeg($target, null, 82); $result = ob_get_clean();
+        ob_start();
+        $encoded = function_exists('imagewebp')
+            ? imagewebp($target, null, 82)
+            : imagejpeg($target, null, 82);
+        $result = ob_get_clean();
         imagedestroy($source); imagedestroy($target);
+        if (!$encoded || !is_string($result) || $result === '') throw new \InvalidArgumentException('Image conversion failed.');
         if (!is_string($result) || strlen($result) > 512_000) throw new \InvalidArgumentException('A foto otimizada deve ter no máximo 500 KB.');
         return base64_encode($result);
     }
@@ -435,7 +440,14 @@ final class AthleteController
     {
         $bytes = $model->photo($id);
         if ($bytes === null) { http_response_code(404); exit; }
-        header('Content-Type: image/jpeg'); header('X-Content-Type-Options: nosniff');
+        $imageInfo = @getimagesizefromstring($bytes);
+        $mime = is_array($imageInfo) ? (string) ($imageInfo['mime'] ?? '') : '';
+        if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
+            http_response_code(415);
+            exit;
+        }
+        header('Content-Type: ' . $mime); header('X-Content-Type-Options: nosniff');
+        header('Cache-Control: private, no-cache, must-revalidate');
         header('Content-Length: ' . strlen($bytes)); echo $bytes;
     }
 
