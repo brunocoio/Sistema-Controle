@@ -61,10 +61,10 @@ final class AthleteController
             $search = is_string($searchValue) ? trim($searchValue) : '';
             $search = mb_substr($search, 0, 100, 'UTF-8');
             $activeOnly = ($_GET['status'] ?? 'todos') === 'ativos';
-            $pageSizeValue = $_GET['per_page'] ?? '25';
+            $pageSizeValue = $_GET['per_page'] ?? '10';
             $pageSize = is_string($pageSizeValue) && in_array($pageSizeValue, ['10', '25', '50', '100'], true)
                 ? (int) $pageSizeValue
-                : 25;
+                : 10;
             $pageValue = $_GET['page'] ?? '1';
             $page = is_string($pageValue) && preg_match('/\A[1-9]\d{0,8}\z/', $pageValue) === 1
                 ? (int) $pageValue

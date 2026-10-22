@@ -7,7 +7,7 @@
         let searchTimer;
         searchInput?.addEventListener('input', () => {
             window.clearTimeout(searchTimer);
-            searchTimer = window.setTimeout(() => searchForm.requestSubmit(), 300);
+            searchTimer = window.setTimeout(() => searchForm.requestSubmit(), 250);
         });
         searchForm.querySelectorAll('select').forEach((select) => {
             select.addEventListener('change', () => searchForm.requestSubmit());
