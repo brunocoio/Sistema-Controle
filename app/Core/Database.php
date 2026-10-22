@@ -34,14 +34,14 @@ final class Database
 
         $databaseConfig = array_replace_recursive([
             'url' => null,
-            'url_environment_variable' => 'DATABASE_URL',
+            'url_environment_variable' => 'DATABASE_URL_UNPOOLED',
             'sslmode' => 'require',
             'connect_timeout' => 20,
         ], is_array($config['database'] ?? null) ? $config['database'] : []);
 
         $url = $databaseConfig['url'] ?? null;
         if (!is_string($url) || $url === '' || $url === 'xxx') {
-            $variable = (string) ($databaseConfig['url_environment_variable'] ?? 'DATABASE_URL');
+            $variable = (string) ($databaseConfig['url_environment_variable'] ?? 'DATABASE_URL_UNPOOLED');
             $url = getenv($variable);
         }
         if (!is_string($url) || $url === '') {
