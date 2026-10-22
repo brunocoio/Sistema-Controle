@@ -110,16 +110,25 @@ final class Database
                 throw new RuntimeException('Conexão recusada pelo PostgreSQL: autenticação inválida. Confira a configuração privada.');
             }
             if (str_starts_with($sqlState, '08') || $sqlState === '7' || $driverCode === 7) {
-                $driverMessage = strtolower((string) ($exception->errorInfo[2] ?? $exception->getMessage()));
+                $driverMessage = strtolower(implode(' ', array_filter([
+                    (string) ($exception->errorInfo[2] ?? ''),
+                    $exception->getMessage(),
+                ])));
                 $category = match (true) {
+                    str_contains($driverMessage, 'endpoint id is not specified'),
+                    str_contains($driverMessage, 'endpoint is not specified'),
+                    str_contains($driverMessage, 'sni') => 'endpoint_sni',
                     str_contains($driverMessage, 'could not translate host name'),
                     str_contains($driverMessage, 'name or service not known'),
+                    str_contains($driverMessage, 'no such host'),
                     str_contains($driverMessage, 'temporary failure in name resolution') => 'dns',
                     str_contains($driverMessage, 'timeout expired'),
                     str_contains($driverMessage, 'connection timed out') => 'timeout',
                     str_contains($driverMessage, 'network is unreachable') => 'network_unreachable',
                     str_contains($driverMessage, 'no route to host') => 'no_route',
                     str_contains($driverMessage, 'connection refused') => 'refused',
+                    str_contains($driverMessage, 'invalid connection option'),
+                    str_contains($driverMessage, 'invalid keyword') => 'dsn',
                     str_contains($driverMessage, 'ssl'),
                     str_contains($driverMessage, 'tls') => 'tls',
                     str_contains($driverMessage, 'server closed the connection'),
