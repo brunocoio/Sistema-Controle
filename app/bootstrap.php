@@ -61,6 +61,12 @@ if (!headers_sent()) {
     header('X-Frame-Options: DENY');
     header("Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'");
     header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+    $forwardedProto = strtolower(trim(explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0] ?? ''));
+    $isHttps = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
+        || $forwardedProto === 'https';
+    if ($isHttps) {
+        header('Strict-Transport-Security: max-age=31536000');
+    }
 }
 
 return $config;
