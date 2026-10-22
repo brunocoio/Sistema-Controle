@@ -110,6 +110,26 @@ final class Database
                 throw new RuntimeException('Conexão recusada pelo PostgreSQL: autenticação inválida. Confira a configuração privada.');
             }
             if (str_starts_with($sqlState, '08') || $sqlState === '7' || $driverCode === 7) {
+                $driverMessage = strtolower((string) ($exception->errorInfo[2] ?? $exception->getMessage()));
+                $category = match (true) {
+                    str_contains($driverMessage, 'could not translate host name'),
+                    str_contains($driverMessage, 'name or service not known'),
+                    str_contains($driverMessage, 'temporary failure in name resolution') => 'dns',
+                    str_contains($driverMessage, 'timeout expired'),
+                    str_contains($driverMessage, 'connection timed out') => 'timeout',
+                    str_contains($driverMessage, 'network is unreachable') => 'network_unreachable',
+                    str_contains($driverMessage, 'no route to host') => 'no_route',
+                    str_contains($driverMessage, 'connection refused') => 'refused',
+                    str_contains($driverMessage, 'ssl'),
+                    str_contains($driverMessage, 'tls') => 'tls',
+                    str_contains($driverMessage, 'server closed the connection'),
+                    str_contains($driverMessage, 'connection reset by peer'),
+                    str_contains($driverMessage, 'eof detected') => 'server_closed',
+                    default => 'unknown',
+                };
+                $safeState = preg_match('/\A[A-Z0-9]{5}\z/', $sqlState) === 1 ? $sqlState : 'UNKNOWN';
+                error_log('PDO_CONNECT_DIAGNOSTIC category=' . $category
+                    . ' sqlstate=' . $safeState . ' driver_code=' . $driverCode);
                 throw new RuntimeException('A tentativa de conexão ao PostgreSQL falhou antes da consulta. Confira a disponibilidade do banco e da rede.');
             }
             throw new RuntimeException('Falha do driver PostgreSQL (SQLSTATE ' . $sqlState . ').');
