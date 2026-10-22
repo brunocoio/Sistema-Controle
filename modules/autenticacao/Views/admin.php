@@ -13,8 +13,8 @@ declare(strict_types=1);
 </head>
 <body class="admin-page">
 <header class="admin-header">
-    <a class="auth-brand" href="../index.php"><?= $escape($appName) ?></a>
-    <form method="post" action="../logout.php">
+    <a class="auth-brand" href="../"><?= $escape($appName) ?></a>
+    <form method="post" action="../logout">
         <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>">
         <button class="button-secondary" type="submit">Sair</button>
     </form>
@@ -26,7 +26,7 @@ declare(strict_types=1);
     <section class="admin-card">
         <h2>Gestão esportiva</h2>
         <p>Cadastre e mantenha os dados da equipe.</p>
-        <a class="button" href="../admin/atletas.php">Gerenciar atletas <span aria-hidden="true">→</span></a>
+        <a class="button" href="atletas">Gerenciar atletas <span aria-hidden="true">→</span></a>
     </section>
 </main>
 </body>

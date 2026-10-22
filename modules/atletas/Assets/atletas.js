@@ -5,9 +5,20 @@
     if (searchForm instanceof HTMLFormElement) {
         const searchInput = searchForm.querySelector('input[name="q"]');
         let searchTimer;
+        searchForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const state = JSON.stringify(Object.fromEntries(new FormData(searchForm).entries()));
+            const bytes = new TextEncoder().encode(state);
+            const token = btoa(String.fromCharCode(...bytes))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+            window.location.assign(new URL(`atletas-filtros-${token}`, window.location.href));
+        });
         const initialSearch = searchInput ? searchInput.value.trim() : '';
+        const cleanFilterRoute = /\/admin\/atletas-filtros-[A-Za-z0-9_-]+$/.test(window.location.pathname);
         let searchHasStarted = Array.from(initialSearch).length >= 3
-            || (initialSearch !== '' && new URLSearchParams(window.location.search).has('q'));
+            || (initialSearch !== '' && (cleanFilterRoute || new URLSearchParams(window.location.search).has('q')));
         searchInput?.addEventListener('input', () => {
             const searchLength = Array.from(searchInput.value.trim()).length;
             const shouldSearch = searchHasStarted || searchLength >= 3 || searchLength === 0;

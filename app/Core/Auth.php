@@ -169,7 +169,7 @@ final class Auth
     {
         $user = self::user();
         if ($user === null) {
-            header('Location: ../login.php', true, 303);
+            header('Location: ../login', true, 303);
             exit;
         }
         if (!in_array($user['role'] ?? null, $roles, true)) {

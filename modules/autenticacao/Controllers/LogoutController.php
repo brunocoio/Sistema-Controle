@@ -26,7 +26,7 @@ final class LogoutController
         }
 
         Auth::logout();
-        header('Location: login.php', true, 303);
+        header('Location: login', true, 303);
         exit;
     }
 }

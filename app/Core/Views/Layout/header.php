@@ -7,7 +7,7 @@
         <nav class="main-nav" aria-label="Navegação principal">
             <a href="./">Início</a>
             <a href="#sobre">Sobre</a>
-            <a class="button nav-login" href="login.php">Entrar</a>
+            <a class="button nav-login" href="login">Entrar</a>
         </nav>
     </div>
 </header>

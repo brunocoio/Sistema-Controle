@@ -25,8 +25,54 @@ final class AthleteController
             Session::start();
             $user = Auth::requireRole('admin');
             $model = new AthleteModel();
-            $actionValue = $_GET['action'] ?? 'list';
+            $legacyAction = $_GET['action'] ?? null;
+            if ($_SERVER['REQUEST_METHOD'] === 'GET' && !array_key_exists('route', $_GET)
+                && is_string($legacyAction)) {
+                if (is_string($_GET['notice'] ?? null)) {
+                    $_SESSION['athlete_notice'] = mb_substr($_GET['notice'], 0, 200, 'UTF-8');
+                }
+                $legacyDestination = match ($legacyAction) {
+                    'new' => 'atletas-novo',
+                    'categories' => 'atletas-categorias',
+                    'edit' => 'atleta-' . $this->id($_GET['id'] ?? null) . '-editar',
+                    'photo' => 'atleta-' . $this->id($_GET['id'] ?? null) . '-foto',
+                    default => null,
+                };
+                if (is_string($legacyDestination)) {
+                    header('Location: ' . $legacyDestination, true, 303);
+                    exit;
+                }
+            }
+            $actionValue = $_GET['route'] ?? 'list';
             $action = is_string($actionValue) ? $actionValue : '';
+            $hasLegacyFilters = array_key_exists('q', $_GET)
+                || array_key_exists('per_page', $_GET)
+                || array_key_exists('page', $_GET)
+                || in_array($_GET['status'] ?? null, ['ativos', 'todos'], true);
+            $hasLegacyNotice = is_string($_GET['notice'] ?? null);
+            if ($action === 'list' && $_SERVER['REQUEST_METHOD'] === 'GET'
+                && !array_key_exists('state', $_GET) && ($hasLegacyFilters || $hasLegacyNotice)) {
+                if ($hasLegacyNotice) {
+                    $_SESSION['athlete_notice'] = mb_substr($_GET['notice'], 0, 200, 'UTF-8');
+                }
+                if (!$hasLegacyFilters) {
+                    header('Location: atletas', true, 303);
+                    exit;
+                }
+                $legacySearch = is_string($_GET['q'] ?? null) ? trim($_GET['q']) : '';
+                $legacyState = [
+                    'q' => mb_substr($legacySearch, 0, 100, 'UTF-8'),
+                    'status' => ($_GET['status'] ?? 'todos') === 'ativos' ? 'ativos' : 'todos',
+                    'per_page' => in_array($_GET['per_page'] ?? null, ['10', '25', '50', '100'], true)
+                        ? (string) $_GET['per_page'] : '10',
+                    'page' => is_string($_GET['page'] ?? null)
+                        && preg_match('/\A[1-9]\d{0,8}\z/', $_GET['page']) === 1 ? $_GET['page'] : '1',
+                ];
+                $legacyJson = json_encode($legacyState, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                $legacyToken = rtrim(strtr(base64_encode($legacyJson), '+/', '-_'), '=');
+                header('Location: atletas-filtros-' . $legacyToken, true, 303);
+                exit;
+            }
             if ($action === 'photo') {
                 $this->photo($model, $this->id($_GET['id'] ?? null));
                 return;
@@ -57,15 +103,42 @@ final class AthleteController
                 http_response_code(404);
                 exit('Página não encontrada.');
             }
-            $searchValue = $_GET['q'] ?? '';
+            $query = $_GET;
+            if (array_key_exists('state', $query)) {
+                try {
+                    $stateToken = $query['state'];
+                    if (!is_string($stateToken) || strlen($stateToken) > 1024
+                        || preg_match('/\A[A-Za-z0-9_-]+\z/', $stateToken) !== 1) {
+                        throw new RuntimeException('Filtro invalido.');
+                    }
+                    $encodedState = strtr($stateToken, '-_', '+/');
+                    $encodedState .= str_repeat('=', (4 - strlen($encodedState) % 4) % 4);
+                    $jsonState = base64_decode($encodedState, true);
+                    if (!is_string($jsonState)) throw new RuntimeException('Filtro invalido.');
+                    $decodedState = json_decode($jsonState, false, 8, JSON_THROW_ON_ERROR);
+                    if (!$decodedState instanceof \stdClass) throw new RuntimeException('Filtro invalido.');
+                    $filterState = get_object_vars($decodedState);
+                    if (array_diff(array_keys($filterState), ['q', 'status', 'per_page', 'page']) !== []) {
+                        throw new RuntimeException('Filtro invalido.');
+                    }
+                    foreach ($filterState as $filterValue) {
+                        if (!is_string($filterValue)) throw new RuntimeException('Filtro invalido.');
+                    }
+                    $query = array_replace($query, $filterState);
+                } catch (Throwable) {
+                    http_response_code(400);
+                    exit('Filtro invalido.');
+                }
+            }
+            $searchValue = $query['q'] ?? '';
             $search = is_string($searchValue) ? trim($searchValue) : '';
             $search = mb_substr($search, 0, 100, 'UTF-8');
-            $activeOnly = ($_GET['status'] ?? 'todos') === 'ativos';
-            $pageSizeValue = $_GET['per_page'] ?? '10';
+            $activeOnly = ($query['status'] ?? 'todos') === 'ativos';
+            $pageSizeValue = $query['per_page'] ?? '10';
             $pageSize = is_string($pageSizeValue) && in_array($pageSizeValue, ['10', '25', '50', '100'], true)
                 ? (int) $pageSizeValue
                 : 10;
-            $pageValue = $_GET['page'] ?? '1';
+            $pageValue = $query['page'] ?? '1';
             $page = is_string($pageValue) && preg_match('/\A[1-9]\d{0,8}\z/', $pageValue) === 1
                 ? (int) $pageValue
                 : 1;
@@ -395,6 +468,8 @@ final class AthleteController
     private function listing(array $config, array $athletes, string $search, bool $activeOnly, int $pageSize, int $page, int $totalPages, int $totalAthletes, array $positionSummary, array $categorySummary): void
     {
         $escape = [View::class, 'escape']; $csrfToken = Csrf::token();
+        $notice = $_SESSION['athlete_notice'] ?? null;
+        unset($_SESSION['athlete_notice']);
         require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'index.php';
     }
 
@@ -402,6 +477,8 @@ final class AthleteController
     {
         $escape = [View::class, 'escape'];
         $csrfToken = Csrf::token();
+        $notice = $_SESSION['athlete_notice'] ?? null;
+        unset($_SESSION['athlete_notice']);
         $categoryOptions = $this->groupCategories($model->categoryCatalog());
         $roles = $model->roleCatalog();
         require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'categories.php';
@@ -431,7 +508,8 @@ final class AthleteController
 
     private function redirectCategories(string $message): never
     {
-        header('Location: atletas.php?action=categories&notice=' . rawurlencode($message), true, 303);
+        $_SESSION['athlete_notice'] = $message;
+        header('Location: atletas-categorias', true, 303);
         exit;
     }
 
@@ -445,7 +523,8 @@ final class AthleteController
 
     private function redirect(string $message): never
     {
-        header('Location: atletas.php?status=salvo&notice=' . rawurlencode($message), true, 303);
+        $_SESSION['athlete_notice'] = $message;
+        header('Location: atletas', true, 303);
         exit;
     }
 }

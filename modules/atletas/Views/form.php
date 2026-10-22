@@ -16,11 +16,11 @@ $hasPhoto = in_array($values['tem_foto'] ?? false, [true, 1, '1', 't', 'true'], 
     <link rel="stylesheet" href="<?= $escape(\App\Core\View::assetUrl('../modules/atletas/Assets/atletas.css', $config)) ?>">
 </head>
 <body class="admin-page">
-<header class="admin-header"><a class="auth-brand" href="../admin/index.php"><?= $escape($appName) ?> · Painel</a><form method="post" action="../logout.php"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><button class="button-secondary" type="submit">Sair</button></form></header>
+<header class="admin-header"><a class="auth-brand" href="../admin/index"><?= $escape($appName) ?> · Painel</a><form method="post" action="../logout"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><button class="button-secondary" type="submit">Sair</button></form></header>
 <main class="admin-content athletes-page">
-    <a class="athlete-link" href="atletas.php">← Voltar à lista</a><p class="eyebrow">GESTÃO ESPORTIVA</p><h1><?= $isEdit ? 'Editar atleta' : 'Novo atleta' ?></h1>
+    <a class="athlete-link" href="atletas">← Voltar à lista</a><p class="eyebrow">GESTÃO ESPORTIVA</p><h1><?= $isEdit ? 'Editar atleta' : 'Novo atleta' ?></h1>
     <?php if (is_array($errors) && $errors !== []): ?><div class="athlete-errors" role="alert"><p>Confira os dados:</p><ul><?php foreach ($errors as $error): ?><li><?= $escape($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
-    <form class="athlete-form" method="post" action="atletas.php" enctype="multipart/form-data">
+    <form class="athlete-form" method="post" action="atletas" enctype="multipart/form-data">
         <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="save"><input type="hidden" name="id" value="<?= $escape($value('id', 0)) ?>">
         <fieldset><legend>Identificação</legend><div class="athlete-fields">
             <label>Nome *<input name="nome" maxlength="120" required autocomplete="name" value="<?= $escape($value('nome')) ?>"></label>
@@ -32,7 +32,7 @@ $hasPhoto = in_array($values['tem_foto'] ?? false, [true, 1, '1', 't', 'true'], 
 
         <fieldset><legend>Vínculos esportivos</legend>
             <p class="athlete-privacy">Cada categoria tem seu próprio número de camisa, cargos e posições. A mesma pessoa pode ter funções diferentes no X5 e no X8.</p>
-            <p><a class="athlete-link" href="atletas.php?action=categories">Configurar categorias, posições e cargos</a></p>
+            <p><a class="athlete-link" href="atletas-categorias">Configurar categorias, posições e cargos</a></p>
             <?php if ($categoryOptions === []): ?><p class="athlete-empty">Não há categorias ativas. Configure uma categoria antes de salvar a participação.</p>
             <?php else: foreach ($categoryOptions as $category):
                 $categoryId = $category['id'];
@@ -59,14 +59,14 @@ $hasPhoto = in_array($values['tem_foto'] ?? false, [true, 1, '1', 't', 'true'], 
                             <small>Os números já usados nesta categoria não aparecem.</small>
                         </label>
                         <fieldset class="athlete-role-group"><legend>Cargos nesta categoria</legend>
-                            <?php if ($roles === []): ?><small>Nenhum cargo cadastrado. <a href="atletas.php?action=categories">Cadastrar cargos</a></small>
+                            <?php if ($roles === []): ?><small>Nenhum cargo cadastrado. <a href="atletas-categorias">Cadastrar cargos</a></small>
                             <?php else: ?><div class="athlete-role-options"><?php foreach ($roles as $role): $playerRole = in_array(mb_strtolower((string) $role['nome'], 'UTF-8'), ['atleta', 'jogador', 'jogadora'], true); ?><label class="athlete-role-option"><input class="category-assignment-control" type="checkbox" name="categorias[<?= $categoryId ?>][cargos][]" value="<?= $role['id'] ?>" <?= in_array((int) $role['id'], array_map('intval', $pickedRoles), true) ? 'checked' : '' ?> <?= (!$participates || ($playerRole && !$compatible)) ? 'disabled' : '' ?> <?= $playerRole ? 'data-player-role="true"' : '' ?>> <?= $escape($role['nome']) ?></label><?php endforeach; ?></div><?php endif; ?>
                         </fieldset>
                     </div>
                     <div class="athlete-side-groups athlete-player-fields">
                     <?php foreach ($category['sides'] as $side): ?>
                         <fieldset class="athlete-side"><legend><?= $escape($side['nome']) ?></legend>
-                            <?php if ($side['posicoes'] === []): ?><small>Nenhuma posição configurada. <a href="atletas.php?action=categories">Adicionar posições</a></small>
+                            <?php if ($side['posicoes'] === []): ?><small>Nenhuma posição configurada. <a href="atletas-categorias">Adicionar posições</a></small>
                             <?php else: foreach ($side['posicoes'] as $position): ?><label class="athlete-position"><input class="category-assignment-control athlete-player-control" type="checkbox" name="categorias[<?= $categoryId ?>][posicoes][]" value="<?= $position['id'] ?>" <?= in_array($position['id'], $pickedPositions, false) ? 'checked' : '' ?> <?= ($compatible && $participates) ? '' : 'disabled' ?>> <?= $escape($position['nome']) ?></label><?php endforeach; endif; ?>
                         </fieldset>
                     <?php endforeach; ?>
@@ -91,10 +91,10 @@ $hasPhoto = in_array($values['tem_foto'] ?? false, [true, 1, '1', 't', 'true'], 
             <label class="athlete-wide">Alergias / observações de saúde<textarea name="alergias" maxlength="2000" rows="4"><?= $escape($value('alergias')) ?></textarea></label>
         </div></fieldset>
         <fieldset><legend>Foto</legend><div class="athlete-fields">
-            <?php if ($hasPhoto): ?><div class="athlete-photo-preview"><img src="atletas.php?action=photo&amp;id=<?= (int) $values['id'] ?>" alt="Foto atual do atleta" width="120" height="120"><label><input type="checkbox" name="remover_foto" value="1"> Remover foto atual</label></div><?php endif; ?>
+            <?php if ($hasPhoto): ?><div class="athlete-photo-preview"><img src="atleta-<?= (int) $values['id'] ?>-foto" alt="Foto atual do atleta" width="120" height="120"><label><input type="checkbox" name="remover_foto" value="1"> Remover foto atual</label></div><?php endif; ?>
             <label class="athlete-wide">Enviar ou substituir foto<input type="file" name="foto" accept="image/jpeg,image/png,image/webp"><small>JPEG, PNG ou WebP. Máximo 5 MB e 6 megapixels. A imagem será redimensionada e convertida para JPEG.</small></label>
         </div></fieldset>
-        <div class="athlete-actions"><button class="athlete-button" type="submit">Salvar cadastro</button><a class="athlete-link" href="atletas.php">Cancelar</a></div>
+        <div class="athlete-actions"><button class="athlete-button" type="submit">Salvar cadastro</button><a class="athlete-link" href="atletas">Cancelar</a></div>
     </form>
 </main>
 <script src="<?= $escape(\App\Core\View::assetUrl('../modules/atletas/Assets/atletas.js', $config)) ?>" defer></script>

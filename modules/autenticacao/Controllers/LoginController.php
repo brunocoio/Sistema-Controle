@@ -18,7 +18,7 @@ final class LoginController
             Session::start();
             header('Cache-Control: no-store, private');
             if (Auth::user() !== null) {
-                header('Location: admin/index.php', true, 303);
+                header('Location: admin/index', true, 303);
                 exit;
             }
         } catch (Throwable $exception) {
@@ -45,7 +45,7 @@ final class LoginController
                     $email = is_string($_POST['email'] ?? null) ? $_POST['email'] : '';
                     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
                     if (Auth::attempt($email, $password)) {
-                        header('Location: admin/index.php', true, 303);
+                        header('Location: admin/index', true, 303);
                         exit;
                     }
                     $message = 'E-mail ou senha inválidos, ou acesso temporariamente bloqueado.';
