@@ -179,7 +179,7 @@ final class AthleteController
         }
         $actionValue = $_POST['action'] ?? 'save';
         $action = is_string($actionValue) ? $actionValue : '';
-        if (in_array($action, ['create-category', 'add-position', 'add-role'], true)) {
+        if (in_array($action, ['create-category', 'add-position', 'add-role', 'update-category', 'update-position', 'update-role', 'delete-category', 'delete-position', 'delete-role'], true)) {
             $this->saveCategoryConfiguration($model, $config, $action);
             return;
         }
@@ -359,6 +359,18 @@ final class AthleteController
     private function saveCategoryConfiguration(AthleteModel $model, array $config, string $action): void
     {
         try {
+            if (str_starts_with($action, 'delete-')) {
+                $type = substr($action, 7);
+                $id = $this->id($_POST['id'] ?? null);
+                match ($type) {
+                    'category' => $model->deleteCategory($id),
+                    'position' => $model->deletePosition($id),
+                    'role' => $model->deleteRole($id),
+                    default => throw new \InvalidArgumentException('Ação inválida.'),
+                };
+                $this->categoryActionResponse(true, 'Registro excluído.');
+                $this->redirectCategories('Registro excluído.');
+            }
             if ($action === 'create-category') {
                 $modality = $_POST['modalidade'] ?? '';
                 $gender = $_POST['genero'] ?? '';
@@ -366,8 +378,9 @@ final class AthleteController
                     || !is_string($gender) || !in_array($gender, ['masculino', 'feminino'], true)) {
                     throw new \InvalidArgumentException('Informe o nome da categoria e o gênero corretamente.');
                 }
-                $model->addCategory(trim($modality), $gender);
-            } elseif ($action === 'add-position') {
+                if ($action === 'update-category') $model->updateCategory($this->id($_POST['id'] ?? null), trim($modality), $gender);
+                else $model->addCategory(trim($modality), $gender);
+            } elseif (in_array($action, ['add-position', 'update-position'], true)) {
                 $categoryId = $this->id($_POST['categoria_id'] ?? null);
                 $side = $_POST['side'] ?? '';
                 $name = $_POST['nome_posicao'] ?? '';
@@ -376,25 +389,42 @@ final class AthleteController
                     || preg_match('/[\x00-\x1F\x7F]/u', $name) === 1) {
                     throw new \InvalidArgumentException('Informe um side e uma posição válidos (até 60 caracteres).');
                 }
-                $model->addPosition($categoryId, $side, trim($name));
+                if ($action === 'update-position') $model->updatePosition($this->id($_POST['id'] ?? null), $categoryId, $side, trim($name));
+                else $model->addPosition($categoryId, $side, trim($name));
             } else {
                 $name = $_POST['nome_cargo'] ?? '';
                 if (!is_string($name) || trim($name) === '' || mb_strlen(trim($name), 'UTF-8') > 60
                     || preg_match('/[\x00-\x1F\x7F]/u', $name) === 1) {
                     throw new \InvalidArgumentException('Informe um nome de cargo válido, com até 60 caracteres.');
                 }
-                $model->addRole(trim($name));
+                if ($action === 'update-role') $model->updateRole($this->id($_POST['id'] ?? null), trim($name));
+                else $model->addRole(trim($name));
             }
+            $this->categoryActionResponse(true, 'Configuração salva.');
             $this->redirectCategories('Configuração salva.');
         } catch (PDOException $exception) {
             $state = (string) ($exception->errorInfo[0] ?? '');
             error_log('Falha ao configurar categorias de atletas: ' . $state);
-            $message = $state === '23505' && $action === 'add-position'
-                ? 'Essa posição já está cadastrada nessa categoria.'
-                : 'Não foi possível salvar a configuração.';
+            $message = $state === '23503'
+                ? 'Não é possível excluir: este registro está vinculado a atletas ou a outros dados.'
+                : ($state === '23505' && in_array($action, ['add-position', 'update-position'], true)
+                    ? 'Essa posição já está cadastrada nessa categoria.'
+                    : ($state === '23505' ? 'Já existe um registro com esses dados.' : 'Não foi possível salvar a configuração.'));
+            $this->categoryActionResponse(false, $message);
             $this->categoriesPage($model, $config, $message);
         } catch (\InvalidArgumentException | RuntimeException $exception) {
+            $this->categoryActionResponse(false, $exception->getMessage());
             $this->categoriesPage($model, $config, $exception->getMessage());
+        }
+    }
+
+    private function categoryActionResponse(bool $ok, string $message): void
+    {
+        if (str_contains(strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json')) {
+            http_response_code($ok ? 200 : 422);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => $ok, 'message' => $message], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            exit;
         }
     }
 

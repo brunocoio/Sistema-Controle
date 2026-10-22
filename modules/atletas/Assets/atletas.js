@@ -1,6 +1,86 @@
 (() => {
     'use strict';
 
+    const configEditors = document.querySelectorAll('[data-config-editor]');
+    const statusMessage = document.querySelector('[data-category-status]');
+    if (statusMessage && statusMessage.textContent.trim() !== '') statusMessage.hidden = false;
+    const showCategoryMessage = (message, isError = false) => {
+        if (!statusMessage) return;
+        statusMessage.textContent = message;
+        statusMessage.classList.toggle('is-error', isError);
+        statusMessage.hidden = false;
+    };
+    const enterEditMode = (type, data) => {
+        const form = document.querySelector(`[data-config-editor="${type}"]`);
+        if (!(form instanceof HTMLFormElement)) return;
+        form.elements.namedItem('id').value = data.id;
+        if (type === 'category') {
+            form.elements.namedItem('modalidade').value = data.name;
+            form.elements.namedItem('genero').value = data.gender;
+        } else if (type === 'position') {
+            form.elements.namedItem('categoria_id').value = data.category;
+            form.elements.namedItem('side').value = data.side;
+            form.elements.namedItem('nome_posicao').value = data.name;
+        } else {
+            form.elements.namedItem('nome_cargo').value = data.name;
+        }
+        const action = form.elements.namedItem('action');
+        action.value = `update-${type}`;
+        const title = form.querySelector('[data-editor-title]');
+        const submit = form.querySelector('[data-editor-submit]');
+        if (title) title.textContent = type === 'category' ? 'Editar categoria' : (type === 'position' ? 'Editar posição' : 'Editar cargo');
+        if (submit) submit.textContent = 'Salvar alterações';
+        form.querySelector('[data-editor-cancel]').hidden = false;
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        form.elements.namedItem(type === 'category' ? 'modalidade' : (type === 'position' ? 'nome_posicao' : 'nome_cargo')).focus({ preventScroll: true });
+    };
+
+    configEditors.forEach((form) => {
+        const type = form.dataset.configEditor;
+        form.querySelector('[data-editor-cancel]')?.addEventListener('click', () => {
+            form.reset();
+            form.elements.namedItem('id').value = '';
+            form.elements.namedItem('action').value = type === 'category' ? 'create-category' : (type === 'position' ? 'add-position' : 'add-role');
+            form.querySelector('[data-editor-title]').textContent = type === 'category' ? 'Nova categoria' : (type === 'position' ? 'Nova posição' : 'Novo cargo');
+            form.querySelector('[data-editor-submit]').textContent = type === 'category' ? 'Criar categoria' : (type === 'position' ? 'Adicionar posição' : 'Cadastrar cargo');
+            form.querySelector('[data-editor-cancel]').hidden = true;
+        });
+        form.addEventListener('submit', async (event) => {
+            if (!form.elements.namedItem('action').value.startsWith('update-')) return;
+            event.preventDefault();
+            try {
+                const response = await fetch(form.action, { method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: { Accept: 'application/json' } });
+                const result = await response.json();
+                if (!response.ok || !result.ok) throw new Error(result.message || 'Não foi possível salvar as alterações.');
+                window.location.reload();
+            } catch (error) {
+                showCategoryMessage(error instanceof Error ? error.message : 'Não foi possível salvar as alterações.', true);
+            }
+        });
+    });
+
+    document.querySelectorAll('[data-edit-category]').forEach((button) => button.addEventListener('click', () => enterEditMode('category', button.dataset)));
+    document.querySelectorAll('[data-edit-position]').forEach((button) => button.addEventListener('click', () => enterEditMode('position', button.dataset)));
+    document.querySelectorAll('[data-edit-role]').forEach((button) => button.addEventListener('click', () => enterEditMode('role', button.dataset)));
+
+    document.querySelectorAll('[data-delete-config]').forEach((form) => form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!window.confirm(`Excluir ${form.dataset.itemName}? Se houver atletas vinculados, o sistema vai bloquear a exclusão.`)) return;
+        const button = form.querySelector('button[type="submit"]');
+        button.disabled = true;
+        try {
+            const response = await fetch(form.action, { method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: { Accept: 'application/json' } });
+            const result = await response.json();
+            if (!response.ok || !result.ok) throw new Error(result.message || 'Não foi possível excluir o registro.');
+            const item = document.querySelector(form.dataset.removeSelector);
+            item?.remove();
+            showCategoryMessage(result.message || 'Registro excluído.');
+        } catch (error) {
+            showCategoryMessage(error instanceof Error ? error.message : 'Não foi possível excluir o registro.', true);
+            button.disabled = false;
+        }
+    }));
+
     const searchForm = document.querySelector('[data-athlete-search]');
     if (searchForm instanceof HTMLFormElement) {
         const searchInput = searchForm.querySelector('input[name="q"]');

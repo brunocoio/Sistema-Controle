@@ -352,6 +352,52 @@ final class AthleteModel
         if ($statement->fetchColumn() === false) throw new RuntimeException('Esse cargo já está cadastrado.');
     }
 
+    public function updateCategory(int $id, string $modality, string $gender): void
+    {
+        $statement = Database::connection()->prepare('UPDATE categorias SET modalidade = :name, genero = :gender WHERE id = :id AND ativo = TRUE RETURNING id');
+        $statement->execute(['id' => $id, 'name' => $modality, 'gender' => $gender]);
+        if ($statement->fetchColumn() === false) throw new RuntimeException('Categoria não encontrada.');
+    }
+
+    public function updatePosition(int $id, int $categoryId, string $sideCode, string $name): void
+    {
+        $statement = Database::connection()->prepare(
+            'UPDATE categoria_posicoes p SET side_id = s.id, nome = :name FROM categoria_sides s
+             WHERE p.id = :id AND p.categoria_id = :category AND p.ativo = TRUE
+               AND s.categoria_id = p.categoria_id AND s.codigo = :side RETURNING p.id'
+        );
+        $statement->execute(['id' => $id, 'category' => $categoryId, 'side' => $sideCode, 'name' => $name]);
+        if ($statement->fetchColumn() === false) throw new RuntimeException('Posição não encontrada ou categoria/side inválido.');
+    }
+
+    public function updateRole(int $id, string $name): void
+    {
+        $statement = Database::connection()->prepare('UPDATE cargos SET nome = :name WHERE id = :id AND ativo = TRUE RETURNING id');
+        $statement->execute(['id' => $id, 'name' => $name]);
+        if ($statement->fetchColumn() === false) throw new RuntimeException('Cargo não encontrado.');
+    }
+
+    public function deleteCategory(int $id): void
+    {
+        $statement = Database::connection()->prepare('DELETE FROM categorias WHERE id = :id AND ativo = TRUE');
+        $statement->execute(['id' => $id]);
+        if ($statement->rowCount() !== 1) throw new RuntimeException('Categoria não encontrada.');
+    }
+
+    public function deletePosition(int $id): void
+    {
+        $statement = Database::connection()->prepare('DELETE FROM categoria_posicoes WHERE id = :id AND ativo = TRUE');
+        $statement->execute(['id' => $id]);
+        if ($statement->rowCount() !== 1) throw new RuntimeException('Posição não encontrada.');
+    }
+
+    public function deleteRole(int $id): void
+    {
+        $statement = Database::connection()->prepare('DELETE FROM cargos WHERE id = :id AND ativo = TRUE');
+        $statement->execute(['id' => $id]);
+        if ($statement->rowCount() !== 1) throw new RuntimeException('Cargo não encontrado.');
+    }
+
     public function toggle(int $id, int $userId): void
     {
         $statement = Database::connection()->prepare('UPDATE atletas SET ativo = NOT ativo, atualizado_por = :user, atualizado_em = CURRENT_TIMESTAMP WHERE id = :id');
