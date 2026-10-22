@@ -1,6 +1,19 @@
 (() => {
     'use strict';
 
+    const searchForm = document.querySelector('[data-athlete-search]');
+    if (searchForm instanceof HTMLFormElement) {
+        const searchInput = searchForm.querySelector('input[name="q"]');
+        let searchTimer;
+        searchInput?.addEventListener('input', () => {
+            window.clearTimeout(searchTimer);
+            searchTimer = window.setTimeout(() => searchForm.requestSubmit(), 300);
+        });
+        searchForm.querySelectorAll('select').forEach((select) => {
+            select.addEventListener('change', () => searchForm.requestSubmit());
+        });
+    }
+
     const genderField = document.getElementById('athlete-gender');
     if (!genderField) return;
 

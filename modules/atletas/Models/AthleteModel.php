@@ -11,6 +11,21 @@ use Throwable;
 
 final class AthleteModel
 {
+    public function count(string $search, bool $activeOnly): int
+    {
+        $statement = Database::connection()->prepare(
+            'SELECT count(*) FROM atletas WHERE (:active = FALSE OR ativo = TRUE)
+             AND (:search = \'\' OR nome ILIKE :pattern_name OR apelido ILIKE :pattern_alias)'
+        );
+        $statement->bindValue('active', $activeOnly, PDO::PARAM_BOOL);
+        $statement->bindValue('search', $search, PDO::PARAM_STR);
+        $pattern = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
+        $statement->bindValue('pattern_name', $pattern, PDO::PARAM_STR);
+        $statement->bindValue('pattern_alias', $pattern, PDO::PARAM_STR);
+        $statement->execute();
+        return (int) $statement->fetchColumn();
+    }
+
     public function list(string $search, bool $activeOnly, int $limit, int $offset): array
     {
         $statement = Database::connection()->prepare(

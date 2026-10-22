@@ -17,9 +17,9 @@ $appName = (string) ($config['app']['name'] ?? 'Sistema FLAG');
     <p class="eyebrow">GESTÃO ESPORTIVA</p><h1>Atletas</h1>
     <p class="athletes-lead">Cadastro administrativo da equipe.</p>
     <?php if (isset($_GET['notice'])): ?><p class="athlete-notice" role="status"><?= $escape($_GET['notice']) ?></p><?php endif; ?>
-    <div class="athlete-toolbar"><form method="get" class="athlete-search"><label for="q">Buscar atleta</label><div><input id="q" name="q" type="search" value="<?= $escape($search) ?>" maxlength="100" placeholder="Digite o nome ou apelido" autocomplete="off"><select name="status" aria-label="Filtrar status"><option value="ativos" <?= $activeOnly ? 'selected' : '' ?>>Ativos</option><option value="todos" <?= !$activeOnly ? 'selected' : '' ?>>Todos</option></select><button class="athlete-button" type="submit">Buscar</button></div></form><div class="athlete-toolbar-actions"><a class="athlete-button" href="atletas.php?action=new">Novo atleta</a><a class="athlete-button button-outline" href="atletas.php?action=categories">Categorias, posições e cargos</a></div></div>
+    <div class="athlete-toolbar"><form method="get" class="athlete-search" data-athlete-search><label for="q">Buscar atleta</label><div><input id="q" name="q" type="search" value="<?= $escape($search) ?>" maxlength="100" placeholder="Digite o nome ou apelido" autocomplete="off"><select name="status" aria-label="Filtrar status"><option value="todos" <?= !$activeOnly ? 'selected' : '' ?>>Todos</option><option value="ativos" <?= $activeOnly ? 'selected' : '' ?>>Ativos</option></select><label class="athlete-page-size">Por página<select name="per_page" aria-label="Atletas por página"><?php foreach ([10, 25, 50, 100] as $option): ?><option value="<?= $option ?>" <?= $pageSize === $option ? 'selected' : '' ?>><?= $option ?></option><?php endforeach; ?></select></label><input type="hidden" name="page" value="1"></div><noscript><button class="athlete-button" type="submit">Buscar</button></noscript></form><div class="athlete-toolbar-actions"><a class="athlete-button" href="atletas.php?action=new">Novo atleta</a><a class="athlete-button button-outline" href="atletas.php?action=categories">Categorias, posições e cargos</a></div></div>
     <p class="athlete-privacy">A lista não exibe documentos, contato de emergência ou informações de saúde.</p>
-    <?php if ($athletes !== []): ?><p class="athlete-result-count"><?= count($athletes) ?> <?= count($athletes) === 1 ? 'atleta encontrado' : 'atletas encontrados' ?><?= count($athletes) === 100 ? ' · exibindo os primeiros 100' : '' ?></p><?php endif; ?>
+    <?php if ($totalAthletes > 0): ?><p class="athlete-result-count">Exibindo <?= ($page - 1) * $pageSize + 1 ?>–<?= min($page * $pageSize, $totalAthletes) ?> de <?= $totalAthletes ?> <?= $totalAthletes === 1 ? 'atleta' : 'atletas' ?></p><?php endif; ?>
     <div class="athlete-list" aria-live="polite">
     <?php if ($athletes === []): ?>
         <section class="athlete-empty">
@@ -48,6 +48,13 @@ $appName = (string) ($config['app']['name'] ?? 'Sistema FLAG');
         </article>
     <?php endforeach; ?>
     </div>
+    <?php if ($totalPages > 1): ?><nav class="athlete-pagination" aria-label="Paginação dos atletas">
+        <?php $query = ['status' => $activeOnly ? 'ativos' : 'todos', 'per_page' => $pageSize]; if ($search !== '') $query['q'] = $search; ?>
+        <?php if ($page > 1): ?><?php $query['page'] = $page - 1; ?><a class="athlete-button button-outline" href="atletas.php?<?= $escape(http_build_query($query)) ?>" rel="prev">Anterior</a><?php else: ?><span class="athlete-button button-outline is-disabled" aria-disabled="true">Anterior</span><?php endif; ?>
+        <span class="athlete-page-indicator">Página <?= $page ?> de <?= $totalPages ?></span>
+        <?php if ($page < $totalPages): ?><?php $query['page'] = $page + 1; ?><a class="athlete-button button-outline" href="atletas.php?<?= $escape(http_build_query($query)) ?>" rel="next">Próxima</a><?php else: ?><span class="athlete-button button-outline is-disabled" aria-disabled="true">Próxima</span><?php endif; ?>
+    </nav><?php endif; ?>
 </main>
+<script src="<?= $escape(\App\Core\View::assetUrl('../modules/atletas/Assets/atletas.js', $config)) ?>" defer></script>
 </body>
 </html>

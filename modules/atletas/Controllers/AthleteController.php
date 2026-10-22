@@ -60,12 +60,23 @@ final class AthleteController
             $searchValue = $_GET['q'] ?? '';
             $search = is_string($searchValue) ? trim($searchValue) : '';
             $search = mb_substr($search, 0, 100, 'UTF-8');
-            $activeOnly = ($_GET['status'] ?? 'ativos') !== 'todos';
-            $athletes = $model->list($search, $activeOnly, 100, 0);
+            $activeOnly = ($_GET['status'] ?? 'todos') === 'ativos';
+            $pageSizeValue = $_GET['per_page'] ?? '25';
+            $pageSize = is_string($pageSizeValue) && in_array($pageSizeValue, ['10', '25', '50', '100'], true)
+                ? (int) $pageSizeValue
+                : 25;
+            $pageValue = $_GET['page'] ?? '1';
+            $page = is_string($pageValue) && preg_match('/\A[1-9]\d{0,8}\z/', $pageValue) === 1
+                ? (int) $pageValue
+                : 1;
+            $totalAthletes = $model->count($search, $activeOnly);
+            $totalPages = max(1, (int) ceil($totalAthletes / $pageSize));
+            $page = min($page, $totalPages);
+            $athletes = $model->list($search, $activeOnly, $pageSize, ($page - 1) * $pageSize);
             $athleteIds = array_column($athletes, 'id');
             $positionSummary = $model->positionSummary($athleteIds);
             $categorySummary = $model->categorySummary($athleteIds);
-            $this->listing($config, $athletes, $search, $activeOnly, $positionSummary, $categorySummary);
+            $this->listing($config, $athletes, $search, $activeOnly, $pageSize, $page, $totalPages, $totalAthletes, $positionSummary, $categorySummary);
         } catch (Throwable $exception) {
             if ($exception instanceof PDOException) {
                 error_log('Falha de banco no módulo de atletas: ' . (string) ($exception->errorInfo[0] ?? 'indisponível'));
@@ -381,7 +392,7 @@ final class AthleteController
         require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'form.php';
     }
 
-    private function listing(array $config, array $athletes, string $search, bool $activeOnly, array $positionSummary, array $categorySummary): void
+    private function listing(array $config, array $athletes, string $search, bool $activeOnly, int $pageSize, int $page, int $totalPages, int $totalAthletes, array $positionSummary, array $categorySummary): void
     {
         $escape = [View::class, 'escape']; $csrfToken = Csrf::token();
         require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'index.php';
