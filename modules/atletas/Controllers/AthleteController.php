@@ -167,6 +167,13 @@ final class AthleteController
             $categorySummary = $model->categorySummary($athleteIds);
             $this->listing($config, $athletes, $search, $activeOnly, $pageSize, $page, $totalPages, $totalAthletes, $positionSummary, $categorySummary);
         } catch (Throwable $exception) {
+            if (str_contains(strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json')) {
+                error_log('Falha inesperada em ação do catálogo: ' . get_class($exception));
+                http_response_code(503);
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => false, 'message' => 'Não foi possível concluir a operação. Atualize a página e tente novamente.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
             if ($exception instanceof PDOException) {
                 error_log('Falha de banco no módulo de atletas: ' . (string) ($exception->errorInfo[0] ?? 'indisponível'));
                 http_response_code(503);
