@@ -34,7 +34,7 @@ final class AthleteModel
         if ($search !== '') $conditions[] = '(nome ILIKE :pattern_name OR apelido ILIKE :pattern_alias)';
         $sql = 'SELECT id, nome, apelido, genero, data_nascimento, ativo, (foto IS NOT NULL) AS tem_foto
                 FROM atletas' . ($conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions)) . '
-                ORDER BY ativo DESC, lower(nome), id LIMIT :limit OFFSET :offset';
+                ORDER BY lower(nome), id LIMIT :limit OFFSET :offset';
         $statement = Database::connection()->prepare($sql);
         if ($search !== '') {
             $pattern = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
