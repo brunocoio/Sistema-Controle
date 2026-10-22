@@ -17,14 +17,17 @@ CREATE TABLE IF NOT EXISTS atletas (
     alergias TEXT,
     foto BYTEA,
     ativo BOOLEAN NOT NULL DEFAULT TRUE,
-    criado_por BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
-    atualizado_por BIGINT REFERENCES usuarios(id) ON DELETE SET NULL,
+    criado_por BIGINT,
+    atualizado_por BIGINT,
     criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CHECK ((contato_emergencia_nome IS NULL) = (contato_emergencia_celular IS NULL))
 );
 
-ALTER TABLE atletas ADD COLUMN IF NOT EXISTS genero VARCHAR(12);
+ALTER TABLE atletas
+    ADD COLUMN IF NOT EXISTS genero VARCHAR(12),
+    DROP CONSTRAINT IF EXISTS atletas_criado_por_fkey,
+    DROP CONSTRAINT IF EXISTS atletas_atualizado_por_fkey;
 CREATE UNIQUE INDEX IF NOT EXISTS atletas_id_genero_unique ON atletas (id, genero);
 CREATE UNIQUE INDEX IF NOT EXISTS atletas_cpf_unique ON atletas (cpf) WHERE cpf IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS atletas_email_unique ON atletas (lower(email)) WHERE email IS NOT NULL;
@@ -113,6 +116,14 @@ CREATE TABLE IF NOT EXISTS atleta_categoria_posicoes (
 
 CREATE INDEX IF NOT EXISTS atleta_categorias_categoria_idx ON atleta_categorias (categoria_id, atleta_id);
 CREATE INDEX IF NOT EXISTS atleta_categoria_posicoes_posicao_idx ON atleta_categoria_posicoes (posicao_id);
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS atletas_nome_trgm_idx
+    ON atletas USING GIN (nome gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS atletas_apelido_trgm_idx
+    ON atletas USING GIN (apelido gin_trgm_ops)
+    WHERE apelido IS NOT NULL;
+
 
 INSERT INTO categorias (modalidade, genero) VALUES
     ('X5', 'masculino'), ('X5', 'feminino'), ('X8', 'masculino'), ('X8', 'feminino')

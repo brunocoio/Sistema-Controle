@@ -39,7 +39,7 @@ final class AthleteController
                     default => null,
                 };
                 if (is_string($legacyDestination)) {
-                    header('Location: ' . $legacyDestination, true, 303);
+                    header('Location: ' . $this->adminPath($legacyDestination), true, 303);
                     exit;
                 }
             }
@@ -63,7 +63,7 @@ final class AthleteController
                     $_SESSION['athlete_notice'] = mb_substr($_GET['notice'], 0, 200, 'UTF-8');
                 }
                 if (!$hasLegacyFilters) {
-                    header('Location: atletas', true, 303);
+                    header('Location: ' . $this->adminPath('atletas'), true, 303);
                     exit;
                 }
                 $legacySearch = is_string($_GET['q'] ?? null) ? trim($_GET['q']) : '';
@@ -77,7 +77,7 @@ final class AthleteController
                 ];
                 $legacyJson = json_encode($legacyState, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
                 $legacyToken = rtrim(strtr(base64_encode($legacyJson), '+/', '-_'), '=');
-                header('Location: atletas-filtros-' . $legacyToken, true, 303);
+                header('Location: ' . $this->adminPath('atletas-filtros-' . $legacyToken), true, 303);
                 exit;
             }
             if ($action === 'photo') {
@@ -103,7 +103,7 @@ final class AthleteController
                     $athleteId = $this->resolveEditToken($_GET['token'] ?? null);
                     if ($athleteId === null && array_key_exists('id', $_GET)) {
                         $token = $this->createEditToken($this->id($_GET['id']));
-                        header('Location: editar-' . $token, true, 303);
+                        header('Location: ' . $this->adminPath('editar-' . $token), true, 303);
                         exit;
                     }
                     if ($athleteId !== null) $athlete = $model->find($athleteId);
@@ -199,7 +199,7 @@ final class AthleteController
         }
         if ($action === 'toggle') {
             $model->toggle($this->id($_POST['id'] ?? null), $userId);
-            $this->redirect('Cadastro atualizado.');
+            $this->redirect('Status do atleta atualizado.', 'warning');
         }
         if ($action !== 'save') {
             http_response_code(400);
@@ -230,7 +230,7 @@ final class AthleteController
             unset($data['categorias']);
             $model->save($data, $userId, $photo, $removePhoto, $assignments);
         } catch (PDOException $exception) {
-            $state = (string) ($exception->errorInfo[0] ?? '');
+            $state = (string) ($exception->errorInfo[0] ?? $exception->getCode());
             if ($state === '23505') {
                 $athlete = $id > 0 ? $model->find($id) : null;
                 $constraint = (string) ($exception->errorInfo[2] ?? '');
@@ -245,14 +245,20 @@ final class AthleteController
             }
             error_log('Falha ao salvar atleta: ' . $state);
             $athlete = $id > 0 ? $model->find($id) : null;
-            $this->form($config, $athlete, $data + ['categorias' => $assignments], ['Não foi possível salvar os dados. Verifique o banco e tente novamente.']);
+            $message = $state === '23503'
+                ? 'Não foi possível salvar: uma categoria, posição ou cargo selecionado não está mais disponível ou não pertence ao vínculo escolhido.'
+                : 'Não foi possível salvar os dados. Verifique o banco e tente novamente.';
+            $this->form($config, $athlete, $data + ['categorias' => $assignments], [$message]);
             return;
         } catch (RuntimeException $exception) {
             $athlete = $id > 0 ? $model->find($id) : null;
             $this->form($config, $athlete, $data + ['categorias' => $assignments], [$exception->getMessage()]);
             return;
         }
-        $this->redirect('Cadastro salvo.');
+        $this->redirect(
+            $id > 0 ? 'Atleta alterado com sucesso.' : 'Atleta cadastrado com sucesso.',
+            $id > 0 ? 'warning' : 'success'
+        );
     }
 
     private function validate(array $input): array
@@ -383,7 +389,7 @@ final class AthleteController
                     default => throw new \InvalidArgumentException('Ação inválida.'),
                 };
                 $this->categoryActionResponse(true, 'Registro excluído.', ['action' => 'delete', 'type' => $type, 'id' => $id]);
-                $this->redirectCategories('Registro excluído.');
+                $this->redirectCategories('Registro excluído.', 'danger');
             }
             $recordType = '';
             $recordId = 0;
@@ -428,21 +434,36 @@ final class AthleteController
             }
             $message = $recordAction === 'update' ? 'Alterações salvas.' : 'Registro cadastrado.';
             $this->categoryActionResponse(true, $message, ['action' => $recordAction, 'type' => $recordType, 'id' => $recordId]);
-            $this->redirectCategories($message);
+            $this->redirectCategories($message, $recordAction === 'update' ? 'warning' : 'success');
         } catch (PDOException $exception) {
-            $state = (string) ($exception->errorInfo[0] ?? '');
+            $state = (string) ($exception->errorInfo[0] ?? $exception->getCode());
             error_log('Falha ao configurar categorias de atletas: ' . $state);
             $message = $state === '23503'
-                ? 'Não é possível excluir: este registro está vinculado a atletas ou a outros dados.'
+                ? $this->linkedConfigurationMessage($action)
                 : ($state === '23505' && in_array($action, ['add-position', 'update-position'], true)
                     ? 'Essa posição já está cadastrada nessa categoria.'
-                    : ($state === '23505' ? 'Já existe um registro com esses dados.' : 'Não foi possível salvar a configuração.'));
+                    : ($state === '23505'
+                        ? 'Já existe um registro com esses dados.'
+                        : (str_starts_with($action, 'delete-')
+                            ? 'Não foi possível excluir o registro. Verifique se existem dados vinculados a ele.'
+                            : 'Não foi possível salvar a configuração.')));
             $this->categoryActionResponse(false, $message);
             $this->categoriesPage($model, $config, $message);
         } catch (\InvalidArgumentException | RuntimeException $exception) {
             $this->categoryActionResponse(false, $exception->getMessage());
             $this->categoriesPage($model, $config, $exception->getMessage());
         }
+    }
+
+    private function linkedConfigurationMessage(string $action): string
+    {
+        return match ($action) {
+            'delete-position' => 'Não foi possível excluir esta posição porque ela está vinculada a um ou mais atletas.',
+            'delete-role' => 'Não foi possível excluir este cargo porque ele está vinculado a um ou mais atletas.',
+            'delete-category' => 'Não foi possível excluir esta categoria porque existem atletas ou outros registros vinculados a ela.',
+            'update-category' => 'Não foi possível alterar esta categoria porque ela está vinculada a um ou mais atletas.',
+            default => 'Não foi possível concluir a operação porque este registro está vinculado a outros dados.',
+        };
     }
 
     private function categoryActionResponse(bool $ok, string $message, array $data = []): void
@@ -588,10 +609,10 @@ final class AthleteController
         return array_values($categories);
     }
 
-    private function redirectCategories(string $message): never
+    private function redirectCategories(string $message, string $tone = 'success'): never
     {
-        $_SESSION['athlete_notice'] = $message;
-        header('Location: atletas-categorias', true, 303);
+        $_SESSION['athlete_notice'] = ['message' => $message, 'tone' => $tone];
+        header('Location: ' . $this->adminPath('atletas-categorias'), true, 303);
         exit;
     }
 
@@ -629,10 +650,20 @@ final class AthleteController
         return $entry['id'];
     }
 
-    private function redirect(string $message): never
+    private function redirect(string $message, string $tone = 'success'): never
     {
-        $_SESSION['athlete_notice'] = $message;
-        header('Location: atletas', true, 303);
+        $_SESSION['athlete_notice'] = ['message' => $message, 'tone' => $tone];
+        header('Location: ' . $this->adminPath('atletas'), true, 303);
         exit;
+    }
+
+    private function adminPath(string $path): string
+    {
+        $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '/admin/atletas.php'));
+        $adminPath = rtrim(str_replace('\\', '/', dirname($scriptName)), '/');
+        if ($adminPath === '.' || $adminPath === '/') {
+            $adminPath = '/admin';
+        }
+        return $adminPath . '/' . ltrim($path, '/');
     }
 }

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 $appName = (string) ($config['app']['name'] ?? 'Sistema FLAG');
+$adminActiveModule = 'atletas';
 ?>
 <!doctype html>
 <html lang="pt-BR">
@@ -11,13 +12,15 @@ $appName = (string) ($config['app']['name'] ?? 'Sistema FLAG');
     <link rel="stylesheet" href="<?= $escape(\App\Core\View::assetUrl('../assets/css/app.css', $config)) ?>">
     <link rel="stylesheet" href="<?= $escape(\App\Core\View::assetUrl('../modules/atletas/Assets/atletas.css', $config)) ?>">
 </head>
-<body class="admin-page">
-<header class="admin-header"><a class="auth-brand" href="../admin/index"><?= $escape($appName) ?> · Painel</a><form method="post" action="../logout"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><button class="button-secondary" type="submit">Sair</button></form></header>
+<body class="admin-page admin-has-sidebar<?= \App\Core\ModuleSettings::sidebarCollapsed((int) ($_SESSION['user']['id'] ?? 0)) ? ' admin-sidebar-collapsed' : '' ?>">
+<?php require dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'Core' . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'Admin' . DIRECTORY_SEPARATOR . 'sidebar.php'; ?>
+<header class="admin-header"><button class="app-button app-button-subtle admin-menu-toggle admin-menu-toggle-mobile" type="button" data-admin-sidebar-toggle data-csrf="<?= $escape($csrfToken) ?>" aria-controls="admin-module-sidebar" aria-expanded="true" aria-label="Abrir menu"><?= \App\Core\View::icon('menu') ?><span>Menu</span></button><a class="auth-brand" href="../admin/index"><?= $escape($appName) ?> · Painel</a><form method="post" action="../logout"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><button class="admin-logout-button" type="submit"><?= \App\Core\View::icon('logout') ?><span>Sair</span></button></form></header>
 <main class="admin-content athletes-page">
     <p class="eyebrow">GESTÃO ESPORTIVA</p><h1>Atletas</h1>
     <p class="athletes-lead">Cadastro administrativo da equipe.</p>
-    <?php if (is_string($notice) && $notice !== ''): ?><p class="athlete-notice" role="status"><?= $escape($notice) ?></p><?php endif; ?>
-    <div class="athlete-toolbar"><form method="get" action="atletas" class="athlete-search" data-athlete-search><label for="q">Buscar atleta</label><div><input id="q" name="q" type="search" value="<?= $escape($search) ?>" maxlength="100" placeholder="Digite o nome ou apelido" autocomplete="off"><select name="status" aria-label="Filtrar status"><option value="todos" <?= !$activeOnly ? 'selected' : '' ?>>Todos</option><option value="ativos" <?= $activeOnly ? 'selected' : '' ?>>Ativos</option></select><label class="athlete-page-size">Por página<select name="per_page" aria-label="Atletas por página"><?php foreach ([10, 25, 50, 100] as $option): ?><option value="<?= $option ?>" <?= $pageSize === $option ? 'selected' : '' ?>><?= $option ?></option><?php endforeach; ?></select></label><input type="hidden" name="page" value="1"></div><noscript><button class="athlete-button" type="submit">Buscar</button></noscript></form><div class="athlete-toolbar-actions"><a class="athlete-button" href="atletas-novo">Novo atleta</a><a class="athlete-button button-outline" href="atletas-categorias">Categorias, posições e cargos</a></div></div>
+    <?php $noticeMessage = is_array($notice) ? ($notice['message'] ?? '') : $notice; $noticeTone = is_array($notice) ? ($notice['tone'] ?? 'success') : 'success'; ?>
+    <?php if (is_string($noticeMessage) && $noticeMessage !== ''): ?><div class="app-toast is-<?= $escape($noticeTone) ?>" data-app-toast role="status" aria-live="polite"><?= $escape($noticeMessage) ?></div><?php endif; ?>
+    <div class="athlete-toolbar"><form method="get" action="atletas" class="athlete-search app-search" data-athlete-search><label for="q">Buscar atleta</label><div><input id="q" name="q" type="search" value="<?= $escape($search) ?>" maxlength="100" placeholder="Digite o nome ou apelido" autocomplete="off"><select name="status" aria-label="Filtrar status"><option value="todos" <?= !$activeOnly ? 'selected' : '' ?>>Todos</option><option value="ativos" <?= $activeOnly ? 'selected' : '' ?>>Ativos</option></select><label class="athlete-page-size">Por página<select name="per_page" aria-label="Atletas por página"><?php foreach ([10, 25, 50, 100] as $option): ?><option value="<?= $option ?>" <?= $pageSize === $option ? 'selected' : '' ?>><?= $option ?></option><?php endforeach; ?></select></label><input type="hidden" name="page" value="1"></div><noscript><button class="app-button" type="submit">Buscar</button></noscript></form><div class="athlete-toolbar-actions"><a class="app-button" href="atletas-novo">Novo atleta</a><a class="app-button app-button-outline" href="atletas-categorias">Categorias, posições e cargos</a></div></div>
     <p class="athlete-privacy">A lista não exibe documentos, contato de emergência ou informações de saúde.</p>
     <?php if ($totalAthletes > 0): ?><p class="athlete-result-count">Exibindo <?= ($page - 1) * $pageSize + 1 ?>–<?= min($page * $pageSize, $totalAthletes) ?> de <?= $totalAthletes ?> <?= $totalAthletes === 1 ? 'atleta' : 'atletas' ?></p><?php endif; ?>
     <div class="athlete-list" aria-live="polite">
@@ -27,8 +30,8 @@ $appName = (string) ($config['app']['name'] ?? 'Sistema FLAG');
             <h2><?= $search !== '' ? 'Nenhum atleta encontrado' : 'Ainda não há atletas cadastrados' ?></h2>
             <p><?= $search !== '' ? 'Não encontramos resultados para “' . $escape($search) . '”. Confira a escrita ou limpe a busca.' : 'Cadastre o primeiro atleta para começar a montar as equipes e atribuir categorias e posições.' ?></p>
             <div class="athlete-empty-actions">
-                <?php if ($search !== ''): ?><a class="athlete-button button-outline" href="atletas">Limpar busca</a><?php endif; ?>
-                <a class="athlete-button" href="atletas-novo">Cadastrar atleta</a>
+                <?php if ($search !== ''): ?><a class="app-button app-button-outline" href="atletas">Limpar busca</a><?php endif; ?>
+                <a class="app-button" href="atletas-novo">Cadastrar atleta</a>
             </div>
         </section>
     <?php endif; ?>
@@ -43,18 +46,19 @@ $appName = (string) ($config['app']['name'] ?? 'Sistema FLAG');
                 <?php foreach ($categorySummary[(int) $row['id']] ?? [] as $category): ?><p class="athlete-category-summary"><strong><?= $escape($category['modalidade']) ?> · <?= $category['genero'] === 'masculino' ? 'Masculino' : 'Feminino' ?></strong><?= $category['numero_camisa'] !== null ? ' · Camisa ' . $escape($category['numero_camisa']) : '' ?><?= !empty($category['cargos']) ? ' · Cargos: ' . $escape($category['cargos']) : '' ?></p><?php endforeach; ?>
                 <?php foreach ($positionSummary[(int) $row['id']] ?? [] as $assignment): ?><p class="athlete-assignment"><strong>· <?= $escape($assignment['side_nome']) ?>:</strong> <?= $escape($assignment['posicoes'] ?? '') ?></p><?php endforeach; ?>
             </div>
-            <span class="athlete-status <?= $isActive ? 'is-active' : 'is-inactive' ?>"><?= $isActive ? 'Ativo' : 'Inativo' ?></span><a class="athlete-link" href="editar-<?= $escape($row['edit_token']) ?>">Editar</a>
+            <span class="athlete-status <?= $isActive ? 'is-active' : 'is-inactive' ?>"><?= $isActive ? 'Ativo' : 'Inativo' ?></span><a class="app-link" href="atletas.php?route=edit&amp;token=<?= $escape($row['edit_token']) ?>">Editar</a>
             <form method="post" action="atletas"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= (int) $row['id'] ?>"><button class="athlete-text-button" type="submit"><?= $isActive ? 'Desativar' : 'Ativar' ?></button></form>
         </article>
     <?php endforeach; ?>
     </div>
     <?php if ($totalPages > 1): ?><nav class="athlete-pagination" aria-label="Paginação dos atletas">
-        <?php $stateUrl = static function (int $targetPage) use ($search, $activeOnly, $pageSize): string { $state = json_encode(['q' => $search, 'status' => $activeOnly ? 'ativos' : 'todos', 'per_page' => (string) $pageSize, 'page' => (string) $targetPage], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR); return 'atletas-filtros-' . rtrim(strtr(base64_encode($state), '+/', '-_'), '='); }; ?>
-        <?php if ($page > 1): ?><a class="athlete-button button-outline" href="<?= $escape($stateUrl($page - 1)) ?>" rel="prev">Anterior</a><?php else: ?><span class="athlete-button button-outline is-disabled" aria-disabled="true">Anterior</span><?php endif; ?>
+        <?php $stateUrl = static function (int $targetPage) use ($search, $activeOnly, $pageSize): string { $state = json_encode(['q' => $search, 'status' => $activeOnly ? 'ativos' : 'todos', 'per_page' => (string) $pageSize, 'page' => (string) $targetPage], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR); $token = rtrim(strtr(base64_encode($state), '+/', '-_'), '='); return 'atletas.php?state=' . rawurlencode($token); }; ?>
+        <?php if ($page > 1): ?><a class="app-button app-button-outline" href="<?= $escape($stateUrl($page - 1)) ?>" rel="prev">Anterior</a><?php else: ?><span class="app-button app-button-outline is-disabled" aria-disabled="true">Anterior</span><?php endif; ?>
         <span class="athlete-page-indicator">Página <?= $page ?> de <?= $totalPages ?></span>
-        <?php if ($page < $totalPages): ?><a class="athlete-button button-outline" href="<?= $escape($stateUrl($page + 1)) ?>" rel="next">Próxima</a><?php else: ?><span class="athlete-button button-outline is-disabled" aria-disabled="true">Próxima</span><?php endif; ?>
+        <?php if ($page < $totalPages): ?><a class="app-button app-button-outline" href="<?= $escape($stateUrl($page + 1)) ?>" rel="next">Próxima</a><?php else: ?><span class="app-button app-button-outline is-disabled" aria-disabled="true">Próxima</span><?php endif; ?>
     </nav><?php endif; ?>
 </main>
+<script src="<?= $escape(\App\Core\View::assetUrl('../assets/js/app.js', $config)) ?>" defer></script>
 <script src="<?= $escape(\App\Core\View::assetUrl('../modules/atletas/Assets/atletas.js', $config)) ?>" defer></script>
 </body>
 </html>

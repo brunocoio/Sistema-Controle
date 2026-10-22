@@ -6,8 +6,10 @@ namespace Modules\Autenticacao\Controllers;
 
 use App\Core\Auth;
 use App\Core\Csrf;
+use App\Core\Database;
 use App\Core\Session;
 use App\Core\View;
+use PDO;
 use Throwable;
 
 final class LoginController
@@ -37,6 +39,63 @@ final class LoginController
 
         $message = '';
         if ($method === 'POST') {
+            $action = (string) ($_POST['action'] ?? '');
+
+            if ($action === 'check-user') {
+                header('Content-Type: application/json; charset=utf-8');
+                if (!Csrf::verify($_POST['_csrf'] ?? null)) {
+                    http_response_code(400);
+                    echo json_encode(['ok' => false, 'message' => 'Sessão expirada. Recarregue a página.'], JSON_UNESCAPED_UNICODE);
+                    exit;
+                }
+
+                $email = strtolower(trim((string) ($_POST['email'] ?? '')));
+                if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+                    http_response_code(422);
+                    echo json_encode(['ok' => false, 'message' => 'Informe um e-mail válido.'], JSON_UNESCAPED_UNICODE);
+                    exit;
+                }
+
+                try {
+                    $db = Database::connection();
+                    $stmt = $db->prepare('SELECT id, nome, email, perfil FROM usuarios WHERE email_normalizado = :email AND ativo = TRUE LIMIT 1');
+                    $stmt->execute(['email' => $email]);
+                    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                    if (!is_array($user)) {
+                        http_response_code(404);
+                        echo json_encode(['ok' => false, 'message' => 'Usuário não encontrado ou inativo.'], JSON_UNESCAPED_UNICODE);
+                        exit;
+                    }
+
+                    $photoData = null;
+                    try {
+                        $photoStmt = $db->prepare("SELECT encode(foto, 'base64') AS foto_b64 FROM atletas WHERE lower(email) = :email AND foto IS NOT NULL LIMIT 1");
+                        $photoStmt->execute(['email' => $email]);
+                        $athleteRow = $photoStmt->fetch(PDO::FETCH_ASSOC);
+                        if (is_array($athleteRow) && !empty($athleteRow['foto_b64'])) {
+                            $photoData = 'data:image/jpeg;base64,' . $athleteRow['foto_b64'];
+                        }
+                    } catch (Throwable) {
+                        $photoData = null;
+                    }
+
+                    echo json_encode([
+                        'ok' => true,
+                        'name' => (string) $user['nome'],
+                        'email' => (string) $user['email'],
+                        'has_photo' => $photoData !== null,
+                        'photo' => $photoData,
+                    ], JSON_UNESCAPED_UNICODE);
+                    exit;
+                } catch (Throwable $e) {
+                    error_log('Erro ao verificar usuário no login: ' . $e->getMessage());
+                    http_response_code(500);
+                    echo json_encode(['ok' => false, 'message' => 'Não foi possível verificar o usuário. Tente novamente.'], JSON_UNESCAPED_UNICODE);
+                    exit;
+                }
+            }
+
             if (!Csrf::verify($_POST['_csrf'] ?? null)) {
                 http_response_code(400);
                 $message = 'Sua sessão expirou. Atualize a página e tente novamente.';

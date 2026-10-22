@@ -15,3 +15,7 @@ RewriteRule ^admin/atleta-([1-9][0-9]*)-foto-v([a-f0-9]{32})\.jpg$ admin/atletas
 RewriteRule ^admin/atleta-([1-9][0-9]*)-foto-v([a-f0-9]{32})$ admin/atletas.php?route=photo&id=$1&v=$2 [QSA,L]
 RewriteRule ^admin/atleta-([1-9][0-9]*)-foto$ admin/atletas.php?route=photo&id=$1 [QSA,L]
 RewriteRule ^admin/atletas-filtros-([A-Za-z0-9_-]+)$ admin/atletas.php?state=$1 [QSA,L]
+RewriteRule ^admin/eventos$ admin/eventos.php [QSA,L]
+RewriteRule ^admin/eventos-novo$ admin/eventos-novo.php [QSA,L]
+RewriteRule ^admin/evento-([1-9][0-9]*)-editar$ admin/eventos.php?route=edit&id=$1 [QSA,L]
+RewriteRule ^eventos$ eventos.php [QSA,L]

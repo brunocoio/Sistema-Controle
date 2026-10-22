@@ -48,6 +48,22 @@
     {
       "source": "/admin/atletas-filtros-:state",
       "destination": "/admin/atletas.php?state=:state"
+    },
+    {
+      "source": "/admin/eventos-novo",
+      "destination": "/admin/eventos-novo.php"
+    },
+    {
+      "source": "^/admin/evento-([1-9][0-9]{0,17})-editar$",
+      "destination": "/admin/eventos.php?route=edit&id=$1"
+    },
+    {
+      "source": "/admin/eventos",
+      "destination": "/admin/eventos.php"
+    },
+    {
+      "source": "/eventos",
+      "destination": "/eventos.php"
     }
   ]
 }

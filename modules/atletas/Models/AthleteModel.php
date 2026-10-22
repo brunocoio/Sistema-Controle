@@ -6,6 +6,7 @@ namespace Modules\Atletas\Models;
 
 use App\Core\Database;
 use PDO;
+use PDOException;
 use RuntimeException;
 use Throwable;
 
@@ -205,13 +206,21 @@ final class AthleteModel
     public function save(array $data, int $userId, ?string $photoBase64, bool $removePhoto, array $assignments): int
     {
         $db = Database::connection();
+        $stage = 'begin_transaction';
         $db->beginTransaction();
         try {
             $id = (int) ($data['id'] ?? 0);
             if ($id > 0) {
+                // Remove dependent rows first so edits also work with existing databases whose FK
+                // was created before the current ON DELETE CASCADE rule was introduced.
+                $stage = 'remove_old_positions';
+                $delete = $db->prepare('DELETE FROM atleta_categoria_posicoes WHERE atleta_categoria_id IN (SELECT id FROM atleta_categorias WHERE atleta_id = :id)');
+                $delete->execute(['id' => $id]);
                 // Remove category links before changing gender; composite FKs prevent cross-gender playing assignments.
+                $stage = 'remove_old_categories';
                 $delete = $db->prepare('DELETE FROM atleta_categorias WHERE atleta_id = :id');
                 $delete->execute(['id' => $id]);
+                $stage = 'remove_old_roles';
                 $delete = $db->prepare('DELETE FROM atleta_cargos_por_categoria WHERE atleta_id = :id');
                 $delete->execute(['id' => $id]);
                 $values = $this->athleteValues($data, $userId);
@@ -224,6 +233,7 @@ final class AthleteModel
                     contato_emergencia_parentesco=:contato_emergencia_parentesco, tipo_sanguineo=:tipo_sanguineo,
                     alergias=:alergias, foto=$photoSql, ativo=:ativo, atualizado_por=:atualizado_por,
                     atualizado_em=CURRENT_TIMESTAMP WHERE id=:id");
+                $stage = 'update_athlete';
                 $statement->execute($values);
                 if ($statement->rowCount() === 0 && $this->find($id) === null) throw new RuntimeException('Cadastro de atleta não encontrado.');
             } else {
@@ -237,14 +247,20 @@ final class AthleteModel
                     VALUES (:nome, :apelido, :genero, :data_nascimento, :celular,
                     :rg, :cpf, :email, :contato_emergencia_nome, :contato_emergencia_celular, :contato_emergencia_parentesco,
                     :tipo_sanguineo, :alergias, $photoSql, :ativo, :criado_por, :atualizado_por) RETURNING id");
+                $stage = 'insert_athlete';
                 $statement->execute($values);
                 $id = (int) $statement->fetchColumn();
             }
-            $this->replaceAssignments($id, (string) $data['genero'], $assignments);
+            $this->replaceAssignments($id, (string) $data['genero'], $assignments, $stage);
             $db->commit();
             return $id;
         } catch (Throwable $exception) {
             if ($db->inTransaction()) $db->rollBack();
+            if ($exception instanceof PDOException) {
+                $state = (string) ($exception->errorInfo[0] ?? $exception->getCode());
+                $safeState = preg_match('/\A[A-Z0-9]{5}\z/', $state) === 1 ? $state : 'UNKNOWN';
+                error_log('ATHLETE_SAVE_FAILURE stage=' . $stage . ' sqlstate=' . $safeState);
+            }
             throw $exception;
         }
     }
@@ -259,11 +275,13 @@ final class AthleteModel
             'contato_emergencia_celular' => $data['contato_emergencia_celular'],
             'contato_emergencia_parentesco' => $data['contato_emergencia_parentesco'],
             'tipo_sanguineo' => $data['tipo_sanguineo'], 'alergias' => $data['alergias'],
-            'ativo' => $data['ativo'], 'atualizado_por' => $userId,
+            // PDO sends values from execute(array) as strings; PHP false becomes an empty
+            // string, which PostgreSQL cannot parse as boolean (SQLSTATE 22P02).
+            'ativo' => !empty($data['ativo']) ? 'true' : 'false', 'atualizado_por' => $userId,
         ];
     }
 
-    private function replaceAssignments(int $athleteId, string $gender, array $assignments): void
+    private function replaceAssignments(int $athleteId, string $gender, array $assignments, string &$stage): void
     {
         $db = Database::connection();
         $categoryQuery = $db->prepare('SELECT id, genero FROM categorias WHERE id = :id AND ativo = TRUE');
@@ -278,6 +296,7 @@ final class AthleteModel
         $playerRoleIds = array_map('intval', $playerRoleIds);
         foreach ($assignments as $categoryId => $assignment) {
             $categoryId = (int) $categoryId;
+            $stage = 'load_category';
             $categoryQuery->execute(['id' => $categoryId]);
             $category = $categoryQuery->fetch();
             if (!is_array($category)) throw new RuntimeException('Uma categoria escolhida não está disponível.');
@@ -294,17 +313,20 @@ final class AthleteModel
             }
             $athleteCategoryId = null;
             if ($sameGender) {
+                $stage = 'insert_category_assignment';
                 $insertCategory->execute([
                     'athlete' => $athleteId, 'category' => $categoryId, 'gender' => $category['genero'], 'jersey' => $jersey,
                 ]);
                 $athleteCategoryId = (int) $insertCategory->fetchColumn();
             }
             foreach ($roleIds as $roleId) {
+                $stage = 'insert_role_assignment';
                 $insertRole->execute(['athlete' => $athleteId, 'category' => $categoryId, 'cargo' => $roleId]);
                 if ($insertRole->rowCount() !== 1) throw new RuntimeException('Um cargo escolhido não está disponível.');
             }
             foreach ($positionIds as $positionId) {
                 if ($athleteCategoryId === null) throw new RuntimeException('Posições exigem uma categoria compatível com o gênero esportivo do atleta.');
+                $stage = 'insert_position_assignment';
                 $insertPosition->execute([
                     'athlete_category' => $athleteCategoryId, 'category' => $categoryId,
                     'category_check' => $categoryId, 'position' => $positionId,

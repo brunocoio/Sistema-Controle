@@ -1,13 +1,13 @@
 # Sistema FLAG
 
-Sistema de gestão para uma organização de FLAG Football, desenvolvido com PHP 8.x, arquitetura MVC modular, HTML5, CSS3, JavaScript puro e Bootstrap.
+Sistema de gestão para uma organização de FLAG Football, desenvolvido com PHP 8.x, arquitetura MVC modular, HTML5, CSS3 e JavaScript puro. O frontend utiliza componentes e CSS próprio inspirado na biblioteca Bootstrap, com foco estrito em performance (PageSpeed 100/100, Core Web Vitals) e acessibilidade, sem frameworks pesados de frontend ou backend.
 
-> **Documento:** README técnico e arquitetural  
-> **Versão do sistema:** 0.1.0  
-> **Status:** Arquitetura inicial / em desenvolvimento  
-> **Ambiente local atual:** Laragon  
+> **Documento:** README técnico e arquitetural
+> **Versão do sistema:** 0.1.0
+> **Status:** Em desenvolvimento
+> **Ambiente local atual:** Laragon com Nginx e PHP 8.x (extensão `pdo_pgsql`)
 > **Ambientes de validação:** Vercel (aplicação PHP conectada a um banco PostgreSQL gerenciado)
-> **Banco escolhido:** PostgreSQL gerenciado pelo Neon via Vercel Marketplace (plano Free para desenvolvimento/homologação, se disponível e adequado)
+> **Banco de dados unificado:** PostgreSQL gerenciado pelo Neon via Vercel Marketplace (mesma instância/cluster consumido tanto no desenvolvimento local quanto na homologação na Vercel)
 > **Caminho atual:** `C:\laragon\www\testes\control`
 
 ---
@@ -67,54 +67,46 @@ O `Core` **não será um MVC central de negócio**.
 
 O Core será responsável por mecanismos compartilhados da aplicação, como:
 
-- inicialização da aplicação;
+- inicialização da aplicação (bootstrap);
 - roteamento;
-- requisição;
-- resposta;
-- conexão com banco;
-- sessão;
-- autenticação;
-- renderização;
-- carregamento de módulos;
-- contratos entre módulos.
+- requisição e resposta;
+- conexão com banco de dados;
+- sessão e autenticação;
+- renderização de templates e views;
+- catálogo e estado dos módulos;
+- componentes globais de interface, validações, modais e segurança.
 
-O Core não deverá conhecer regras específicas de:
+O Core **não deverá conhecer regras específicas** de atletas, jogos, treinos, financeiro, almoxarifado ou qualquer outro domínio de negócio.
 
-- atletas;
-- jogos;
-- treinos;
-- financeiro;
-- almoxarifado;
-- desempenho;
-- ou qualquer outro domínio de negócio.
+Campos, labels, inputs, selects/options, radios, drag and drop, upload, textarea, links, botões, ícones, cores, validações, proteções, tooltips, confirmações e toasts são padrões globais centralizados no Core/Padrão.
 
-### 2.3 Módulos independentes
+### 2.3 Módulos independentes e o Módulo Padrão (Default)
 
 Cada módulo deverá concentrar tudo que pertence ao seu domínio.
 
-Adicionar um módulo deverá significar, preferencialmente:
+- **Módulo Padrão (Default/Core):** É obrigatório e fundamental. **Não é possível desativar** o módulo padrão. Ele centraliza a identidade visual, componentes comuns, layout base e mecanismos transversais.
+- **Módulos de Domínio (ex.: Atletas, Eventos):** São modulares, independentes e **opcionais**. Podem ser ativados ou desativados pelo administrador de maior nível via painel de controle. Desativar um módulo oculta seus acessos e rotas, mas preserva integralmente seus arquivos e dados no banco.
+
+Adicionar um módulo deverá significar:
 
 ```text
 Adicionar pasta do módulo
         ↓
-Registrar módulo
+Registrar módulo no catálogo
         ↓
-Executar migrations
+Executar migrations explicitamente
         ↓
 Disponibilizar suas rotas
         ↓
 Disponibilizar seus Assets
 ```
 
-Remover um módulo deverá ser possível sem alterar a implementação interna dos demais.
-
-### 2.4 Comunicação entre módulos
+### 2.4 Comunicação entre módulos e Regra de Promoção de Componentes
 
 Um módulo não deverá acessar diretamente Controllers, Models ou Views internas de outro módulo.
 
-Quando houver necessidade de comunicação, deverão ser utilizados contratos/interfaces ou mecanismos definidos pelo sistema.
-
-Referências entre módulos deverão ser tratadas de maneira controlada, evitando acoplamento estrutural.
+- **Regra de Isolamento Específico:** Enquanto um componente pertencer a apenas um módulo (exemplo: o seletor de data/hora e o *calendar* do módulo de Eventos), ele deve permanecer encapsulado exclusivamente nos arquivos do respectivo módulo (`modules/eventos/`).
+- **Regra de Promoção ao Padrão (DRY):** Assim que outro módulo necessitar desse mesmo componente (ex.: calendário em treinos ou convocações), o componente deve ser **promovido para o Padrão (Default/Core)**. A implementação específica é então removida dos módulos individuais, unificando CSS, JavaScript e validações em um único lugar global para evitar redundâncias e duplicidade de código.
 
 ---
 
@@ -123,69 +115,27 @@ Referências entre módulos deverão ser tratadas de maneira controlada, evitand
 ## Backend
 
 - PHP 8.x
-- PDO para acesso ao banco
-- PHP sem framework
+- PDO para acesso ao banco (driver `pgsql`)
+- PHP sem framework (arquitetura MVC limpa)
 
 ## Frontend
 
-- HTML5
-- CSS3
-- JavaScript puro
-- Bootstrap
+- HTML5 semântico
+- CSS3 próprio e componentes globais
+- JavaScript puro (ES6+, sem jQuery ou frameworks SPA)
+- Design system padronizado e responsivo
 
 ## Ícones
 
-Preferência:
+Catálogo central no helper global `App\Core\View::icon()` com vetores SVG nativos de alta performance, mantendo compatibilidade universal (100% de dispositivos), zero CLS e zero requisições externas de rede.
 
-1. Bootstrap Icons
-2. Google Material Symbols/Icons, quando necessário
+## Desenvolvimento local e Homologação
 
-Não será utilizado Font Awesome como dependência padrão.
-
-## Desenvolvimento local
-
-- Laragon
-- Apache
-- PHP 8.x
-- Banco de dados compatível com a arquitetura definida
-
-## Validação, publicação e banco de dados
-
-- O código PHP será publicado na Vercel para testes e homologação.
-- O banco será configurado desde o início da homologação e será um serviço gerenciado conectado à aplicação hospedada na Vercel; a Vercel executa a aplicação, enquanto o serviço escolhido mantém os dados.
-- O banco escolhido para desenvolvimento/homologação é PostgreSQL gerenciado pelo Neon, integrado via Vercel Marketplace. Usar Neon Free se estiver disponível na conta e se seus limites forem adequados; confirmar plano, região, limites e cobrança no painel antes de provisionar.
-- PostgreSQL será o mecanismo de referência do projeto, inclusive no desenvolvimento local, salvo decisão arquitetural futura documentada. A escolha considera suporte a transações, relacionamentos e PDO_PGSQL.
-- O banco e o plano de produção devem ser revistos antes da entrada em produção, incluindo limites, backups e estratégia de recuperação.
-- A camada de acesso a dados deverá manter Controllers e módulos independentes do mecanismo de persistência, permitindo configurar cada ambiente sem espalhar diferenças pelo código.
-- A escolha do banco de homologação deve ocorrer antes da implementação de funcionalidades persistentes, para validar a compatibilidade e evitar retrabalho.
-- As migrations serão a fonte oficial da evolução do esquema e deverão permitir uma transição controlada entre ambientes.
-
-Fluxo previsto:
-
-```text
-Desenvolvimento local
-        ↓
-Escolha e configuração do banco gerenciado
-        ↓
-Publicação PHP na Vercel conectada ao banco
-        ↓
-Testes e homologação com persistência
-        ↓
-Revisão do plano e da configuração de produção
-        ↓
-Migração e entrada em produção
-```
-
-Segredos locais ficam em config/conf.php, ignorado pelo Git. Na Vercel, credenciais e URLs serão fornecidas pelo ambiente (DATABASE_URL). Não armazenar segredos no Git nem em scripts de setup. A estratégia de persistência de arquivos enviados também deverá ser definida separadamente, pois o sistema não deve depender do disco local da hospedagem para dados que precisem sobreviver a novos deploys.
-
-### Banco PostgreSQL
-
-- `php setup/install.php` prepara configuração central, conexão PDO PostgreSQL e extensão PDO_PGSQL para a imagem Vercel, criando apenas arquivos ausentes.
-- No painel da Vercel, provisionar PostgreSQL pelo Marketplace com Neon, selecionar o plano Free se estiver disponível, revisar região, limites e faturamento e conectar o recurso aos ambientes desejados.
-- O acesso da aplicação será feito por PDO com o driver `pgsql`; no Laragon, PDO_PGSQL deve estar habilitado na versão de PHP 8.x em uso.
-- A configuração local fica centralizada em `config/conf.php`, ignorado pelo Git. A URL local fica nesse arquivo; na Vercel, `DATABASE_URL` é fornecida pelo Neon.
-- `config/conf_sample.php` documenta as chaves da configuração e usa `xxx` nos valores secretos. Em produção, a aplicação lê `DATABASE_URL` da Vercel; erros nunca devem expor credenciais.
-- As migrations serão escritas para PostgreSQL e executadas explicitamente; não executar migrations destrutivas automaticamente durante cada requisição ou deploy.
+- **Local:** Laragon com servidor web **Nginx** e PHP 8.x (`pdo_pgsql` habilitado).
+- **Homologação:** Vercel (PHP serverless).
+- **Banco de Dados Unificado:** PostgreSQL gerenciado pelo **Neon** via Vercel Marketplace, conectado tanto no ambiente local quanto na Vercel para garantir 100% de paridade de dados e comportamento.
+- **Regra de Permissão Externa:** Nenhuma alteração no Neon (migrations, DDL, comandos de banco) ou qualquer interação fora do projeto pode ser executada sem autorização explícita do usuário.
+- **Diretiva de Economia de Tokens:** Documentação técnica hierárquica, direta e visual, evitando repetição desnecessária de código nas interações rotineiras.
 
 ## Não utilizar
 
@@ -331,65 +281,43 @@ control/
 
 ---
 
-# 9. Configurações centralizadas
+# 9. Configurações centralizadas e Versionamento Granular
 
-As configurações da aplicação deverão ser centralizadas.
-
-Não criar arquivos espalhados como:
-
-```text
-config_db.php
-config_php.php
-config_token.php
-config_email.php
-config_api.php
-config_auth.php
-```
-
-sem uma necessidade arquitetural real.
-
-A preferência é:
+As configurações da aplicação são centralizadas em um único ponto:
 
 ```text
 config/
-└── config.php
+├── conf_sample.php (modelo versionado no Git sem segredos)
+└── conf.php        (arquivo local privado com credenciais e URLs reais)
 ```
 
-O arquivo central poderá organizar as configurações por seção:
+### 9.1 Versionamento Granular de Assets
+
+Para controle de cache rigoroso e compatibilidade com diretivas de PageSpeed, os recursos estáticos contam com versionamento independente:
 
 ```php
-<?php
-
 return [
-
     'app' => [
         'name' => 'Sistema FLAG',
         'version' => '0.1.0',
         'environment' => 'development',
-        'debug' => true,
-        'url' => 'http://localhost/control',
+        'debug' => false,
     ],
-
-    // Driver e credenciais serão definidos quando a persistência de cada ambiente for decidida.
+    'assets' => [
+        'css_version'   => '1.0.0',
+        'js_version'    => '1.0.0',
+        'image_version' => '1.0.0',
+    ],
     'database' => [
-        'driver' => null,
+        'url' => 'postgresql://...',
+        'url_environment_variable' => 'DATABASE_URL',
+        'sslmode' => 'require',
+        'connect_timeout' => 20,
     ],
-
-    'session' => [
-        'name' => 'FLAG_SESSION',
-        'lifetime' => 7200,
-    ],
-
-    'security' => [
-        'csrf_enabled' => true,
-    ],
-
 ];
 ```
 
-> Credenciais, tokens e informações sensíveis não devem ser versionados no Git. Quando necessário, utilizar variáveis de ambiente ou um arquivo local protegido, mantendo a configuração da aplicação centralizada.
-
-O objetivo é ter **uma única referência de configuração**, organizada por contexto, em vez de espalhar configurações pelo projeto.
+O helper `App\Core\View::assetUrl()` identifica automaticamente a extensão do recurso (`.css`, `.js`, imagens) e aplica a versão correspondente na URL para cache-busting preciso sem exigir limpeza manual do navegador.
 
 ---
 
@@ -496,55 +424,32 @@ AtletaAdminController
 
 ---
 
-# 11. Autenticação
+# 11. Autenticação em Duas Etapas
 
-O sistema possuirá login e logout.
+O módulo de autenticação (`modules/autenticacao/`) opera de forma robusta e amigável:
 
-O módulo de autenticação será:
+### 11.1 Fluxo em Duas Etapas
 
-```text
-modules/autenticacao/
-```
+1. **Etapa 1 (Identificação):**
+   - Apresenta apenas o campo de **E-mail/Login** acompanhado do botão circular com a seta para a direita (`arrow-right`), sem bordas pesadas e sem fundo sólido.
+   - O usuário pode avançar clicando na seta ou pressionando `Enter`.
+   - Uma verificação assíncrona (`action=check-user`) consulta no banco se o e-mail corresponde a um usuário ativo.
+   - **Caso não encontre:** Exibe feedback amigável no campo e via toast (*"Usuário não encontrado ou inativo."*), mantendo o campo de e-mail focado para correção.
+   - **Caso encontre:** Oculta suavemente a etapa 1 com animação rápida de transição (220ms).
 
-Estrutura:
+2. **Etapa 2 (Autenticação):**
+   - Exibe o cartão de identificação do usuário com sua foto de perfil (quando cadastrada na tabela de atletas vinculada pelo e-mail) ou o avatar padrão vetorial (`user`).
+   - Apresenta o nome e o e-mail identificado.
+   - Exibe o campo de **Senha** com foco automático imediato e o botão principal **Entrar**.
+   - **Botão de Retorno Contextual:** O botão circular com a seta para a esquerda (`arrow-left`) surge exclusivamente na Etapa 2, permitindo retornar à Etapa 1 para trocar de conta ou corrigir o e-mail a qualquer momento.
 
-```text
-autenticacao/
-├── Controllers/
-│   ├── LoginController.php
-│   └── LogoutController.php
-│
-├── Models/
-│   └── Usuario.php
-│
-├── Views/
-│   └── login.php
-│
-├── Routes/
-│   └── web.php
-│
-├── Assets/
-│   ├── css/
-│   └── js/
-│
-├── Database/
-│   ├── migrations/
-│   └── seeds/
-│
-└── module.php
-```
+3. **Ambiente Visual:**
+   - O fundo da tela de login (`.auth-page`) utiliza a cor branca (`#fff`), oferecendo uma estética leve e limpa.
 
-Autenticação e autorização são conceitos separados.
-
-```text
-Autenticação
-    ↓
-Quem é o usuário?
-
-Autorização
-    ↓
-O que esse usuário pode fazer?
-```
+### 11.2 Cabeçalho Administrativo e Ação de Logout
+- O botão **Sair** no cabeçalho do painel administrativo foi padronizado em formato compacto (`36px` de altura, tipografia `13px` com peso `700`).
+- Incorpora o ícone vetorial nativo `logout` ao lado do texto.
+- Opera sem fundo e sem borda em qualquer estado (normal e `:hover`), adotando a cor de alerta (`var(--red)` / `#b50c14`) para manter clareza e discrição.
 
 ---
 
@@ -804,48 +709,51 @@ Somente funcionalidades realmente globais deverão entrar nesses arquivos.
 
 ---
 
-# 20. Bootstrap
+# 20. Biblioteca visual e componentes
 
-Bootstrap será utilizado como biblioteca visual principal.
+O frontend do Sistema FLAG foi desenvolvido com foco em acessibilidade e pontuação máxima no PageSpeed (Core Web Vitals):
 
-Exemplos:
+- Grid responsivo;
+- Cards e painéis modulares;
+- Botões de ação primários, outline e de perigo;
+- Formulários rotulados com foco acessível;
+- Modais nativos via `<dialog>` acessível;
+- Alertas e toasts de notificação (`window.AppUI.showToast`);
+- Menu lateral administrativo (sidebar) responsivo e retrátil, com persistência da preferência do usuário em banco.
 
-- grid;
-- cards;
-- buttons;
-- forms;
-- tables;
-- modals;
-- alerts;
-- dropdowns;
-- navbar;
-- sidebar;
-- responsive layout.
-
-A aplicação não deverá depender de um framework JavaScript adicional.
+O projeto utiliza o padrão visual Bootstrap como referência de design e classes, implementado através de **CSS próprio otimizado** em `assets/css/app.css`, evitando scripts pesados e mantendo o carregamento ultrarrápido.
 
 ---
 
 # 21. Ícones
 
-Preferência:
+### 21.1 Catálogo de Referência Visual
+A biblioteca adota como guia de desenho e semântica:
 
 ```text
-1. Bootstrap Icons
-2. Google Material Symbols
+1. Bootstrap Icons (referência primária de desenho)
+2. Google Material Symbols (referência secundária)
 ```
 
-Exemplo:
+Nomenclaturas de referência padronizadas:
+- `bi-person` (usuário / atleta)
+- `bi-calendar-event` (eventos / jogos / treinos)
+- `bi-shield-check` (segurança / perfil)
+- `bi-pencil` (editar)
+- `bi-trash` (excluir)
+- `bi-list` (menu)
+- `bi-arrow-right` (avançar)
+- `bi-arrow-left` (voltar)
+- `bi-box-arrow-right` (logout / sair)
 
-```html
-<i class="bi bi-person"></i>
-<i class="bi bi-calendar-event"></i>
-<i class="bi bi-trophy"></i>
-<i class="bi bi-pencil"></i>
-<i class="bi bi-trash"></i>
+### 21.2 Implementação de Alta Performance (SVG Nativo)
+Para eliminar incompatibilidades em dispositivos móveis, bloqueios por adblockers e requisições adicionais de arquivos de fonte `.woff2` que prejudicariam as notas do PageSpeed, os ícones são gerados pelo helper global centralizado:
+
+```php
+App\Core\View::icon(string $name): string
 ```
 
-Os ícones deverão manter consistência visual em todo o sistema.
+Os ícones são renderizados como SVGs inline nativos, com `stroke: currentColor`, herdando cores, transições e estados de hover diretamente das variáveis CSS globais do projeto.
 
 ---
 
@@ -1571,111 +1479,11 @@ A implementação deverá seguir aproximadamente esta ordem:
 
 ---
 
-# 48. Estado atual da arquitetura
-
-```text
-┌─────────────────────────────────────────────┐
-│              SISTEMA FLAG                   │
-├─────────────────────────────────────────────┤
-│ PHP 8.x                                     │
-│ MVC modular                                 │
-│ HTML5 + CSS3 + JavaScript                   │
-│ Bootstrap                                   │
-│ Bootstrap Icons                             │
-│ Google Material Symbols (alternativa)       │
-│ PDO                                         │
-│ Laragon                                     │
-├─────────────────────────────────────────────┤
-│ Sem Node.js                                 │
-│ Sem Laravel                                 │
-│ Sem Symfony                                 │
-│ Sem React                                   │
-│ Sem Vue                                     │
-│ Sem Angular                                 │
-└─────────────────────────────────────────────┘
-```
----
-
-# 49. Setup do projeto
-
-A estrutura, os arquivos-base, a configuração central, o Core, o Router e o layout público são preparados por um único instalador:
-
-```text
-php setup/install.php
-```
-
-O instalador cria apenas arquivos-base ausentes e preserva arquivos existentes. Não cria backups temporários nem altera o banco automaticamente.
-
-Opções disponíveis (migrate-auth altera apenas a estrutura aditiva de autenticação no banco selecionado; create-admin requer migration aplicada):
-
-```text
-php setup/install.php --migrate-local-config
-php setup/install.php --migrate-auth
-php setup/install.php --create-admin
-php setup/install.php --check-db
-```
-
---migrate-local-config migra a configuração antiga e a URL de .env.local para config/conf.php, validando antes de remover os arquivos legados. --check-db valida a configuração local ou DATABASE_URL do ambiente com SELECT 1.
-
-O layout público fica em app/Core/Views/Layout/; a página inicial fica em app/Core/Views/Pages/Public/; os estilos globais ficam em assets/css/app.css.
-
-## Autenticação, segurança e desempenho
-
-O Core fornece sessão, CSRF e verificação de identidade; o módulo modules/autenticacao reúne controllers, views e migration. O login usa consultas PDO parametrizadas, password_hash/password_verify, mensagens genéricas para falhas, limitação temporária de tentativas por IP e e-mail e revalidação do usuário/perfil no banco em cada acesso protegido. Sessões usam cookie HttpOnly, SameSite=Lax, Secure em HTTPS e armazenamento PostgreSQL para funcionar em instâncias Vercel distintas.
-
-A migration só é aplicada por comando explícito e cria tabelas/índices sem apagar dados:
-- php setup/install.php --migrate-auth
-
-Para criar um administrador local de teste após a migration, execute `php setup/install.php --create-admin`. Sem `FLAG_ADMIN_PASSWORD`, o instalador cria automaticamente `Root Teste` (`root@localhost.test`) com a senha temporária `RootTest2026`, destinada exclusivamente a testes locais. Essas credenciais padrão são bloqueadas quando `APP_ENV=production` ou `VERCEL=1`. Se a conta já existir, o instalador não altera seu cadastro nem sua senha. Para criar outro administrador local ou de produção, defina `FLAG_ADMIN_PASSWORD` com uma senha temporária de pelo menos 8 caracteres e informe nome e e-mail. Não envie senhas pelo chat nem use a senha padrão fora do ambiente local.
-
-As telas usam HTML semântico, formulários rotulados, layout responsivo, feedback acessível e cabeçalhos de segurança. Login e administração usam no-store e noindex. Não carregam fontes, bibliotecas ou scripts de terceiros sem necessidade.
-
-### Regras para imagens e estabilidade visual
-
-- Converter imagens fotográficas para WebP; preferir SVG para logos e ícones vetoriais.
-- Reservar o espaço de cada imagem com width e height intrínsecos, além de texto alternativo útil. Isso reduz CLS e atende leitores de tela.
-- Usar picture/source com media para variantes desktop/mobile quando houver composições distintas; fornecer fallback em img.
-- Usar fetchpriority="high" e preload somente para a imagem LCP realmente crítica no início da página. Não elevar todas as imagens da primeira dobra, pois recursos concorrentes podem atrasar a imagem principal.
-- Não aplicar loading="lazy" à imagem LCP ou a qualquer imagem visível imediatamente. Aplicar loading="lazy" às imagens abaixo da dobra.
-- Usar a classe img-fluid apenas se o Bootstrap estiver realmente carregado; no momento, o projeto não depende dele e usa CSS próprio responsivo.
-
-### Regras para CSS, fontes e JavaScript
-
-- Manter CSS crítico e pequeno disponível no primeiro render. Não converter a folha principal para carregamento assíncrono sem medir: isso pode exibir conteúdo sem estilo e causar CLS. Separar CSS não crítico apenas quando houver volume que justifique o custo.
-- Quando uma fonte externa for adotada, hospedar localmente arquivos WOFF2 licenciados, declarar @font-face em CSS com font-display: swap e fazer preload somente da fonte usada acima da dobra. Evitar Google Fonts remoto e famílias/pesos não utilizados.
-- Carregar scripts próprios com defer quando não forem necessários para construir o HTML. Não atrasar o conteúdo principal dentro de uma função executada após cinco segundos ou uma interação.
-- Só carregar analytics, gerenciadores de tags, consentimento ou outros terceiros quando necessários e de acordo com o consentimento aplicável. Atrasar código não essencial após consentimento/interação; scripts de segurança e a interface de consentimento não devem ser atrasados de forma que quebrem sua finalidade.
-- Antes de inicializar um plugin opcional, verificar se sua biblioteca existe. Não adicionar jQuery/OwlCarousel apenas para utilizar essa verificação; o projeto não usa esses plugins atualmente.
-
-A página atual não contém imagens, scripts ou fontes externas; portanto, as otimizações correspondentes ficam definidas como padrão para as próximas telas. Medir Core Web Vitals/PageSpeed após cada tela com seus recursos reais e corrigir problemas observados, sem sacrificar acessibilidade nem estabilidade visual.
-
-### Versão e cache de arquivos estáticos
-
-A configuração principal é carregada de config/conf.php; app/bootstrap.php apenas valida e carrega a configuração, usando config/conf_sample.php quando o arquivo privado não existe. O modelo conf_sample é mantido no Git sem segredos. A versão dos recursos está em assets.version; ao alterar CSS, JavaScript ou imagens, incremente-a, por exemplo para 1.0.1. As referências geradas por App\Core\View::assetUrl() passam a incluir ?v=1.0.1, fazendo o navegador buscar o arquivo atualizado sem exigir limpeza manual do cache. Use o helper para URLs de arquivos dentro de assets/, nunca para URLs externas.
-
-## Padrão de segurança dos scripts
-
-Todo script de setup deverá:
-
-1. declarar compatibilidade e pré-requisitos, descrever arquivos criados/atualizados e registrar o comando de execução;
-2. resolver a raiz do projeto a partir do próprio script, nunca confiar no diretório atual do terminal;
-3. limitar gravações à raiz e às pastas previstas para a etapa, rejeitando caminhos absolutos, travessia `..` e destinos fora do projeto;
-4. criar arquivos somente quando ausentes, preservando arquivos e links existentes, salvo quando uma atualização for explicitamente solicitada e documentada;
-5. evitar funções globais com nomes genéricos que possam colidir com outros scripts; preferir nomes específicos ou funções encapsuladas;
-6. verificar resultados de criação e gravação, tratar erros claramente e não reportar sucesso quando uma operação falhar;
-7. não executar comandos destrutivos, baixar/rodar código remoto ou alterar permissões do sistema;
-8. nunca escrever credenciais, tokens ou dados reais. Configurações secretas devem ser fornecidas pelo ambiente e arquivos locais com segredos não devem ser versionados;
-9. ser seguro para reexecução: uma segunda execução não deve mudar arquivos existentes nem apagar dados;
-10. ser revisado antes da execução, e os arquivos gerados devem ser conferidos depois.
-
-Quando uma etapa precisar modificar arquivo já existente, deverá usar um script de atualização separado ou um modo explícito, mostrar exatamente o alvo e preservar uma cópia/backup antes da alteração. Não introduzir sobrescrita silenciosa.
-
----
-## Módulo de atletas
+## Módulo de atletas (Regras e Persistência)
 
 O cadastro administrativo mantém nome, apelido, gênero para elegibilidade, data de nascimento, celular, RG, CPF, e-mail, contato de emergência (nome, celular e parentesco), tipo sanguíneo, alergias, foto e status ativo/inativo. O CPF é único. A idade é calculada a partir da data de nascimento.
 
-Uma pessoa pode ter vários vínculos de categoria, cargos, posições e números de camisa. Camisa (0–99) é única dentro de cada categoria; X5 e X8 mantêm listas independentes, e o formulário mostra somente os números disponíveis. CPF também é único no banco.
+Uma pessoa pode ter vários vínculos de categoria, cargos, posições e números de camisa. Camisa (0 a 99) é única dentro de cada categoria; X5 e X8 mantêm listas independentes, e o formulário mostra somente os números disponíveis. CPF também é único no banco.
 
 Cada posição pertence a uma categoria e a um side específico (ataque, defesa ou time especial), e seu nome não pode se repetir em nenhum side da mesma categoria. O vínculo entre categorias e posições impede que posições de X5 sejam confundidas com as de X8. Cargos são cadastrados em um catálogo e podem ser combinados por categoria; os cargos iniciais são Staff, Capitão, Treinador, Atleta, Head Coach e Manager. Uma pessoa pode, por exemplo, ser atleta e treinadora no X8 e capitã no X5. Cargos técnicos podem ser associados a categorias de outro gênero; camisas, posições e o cargo Atleta exigem gênero esportivo compatível.
 
@@ -1683,4 +1491,59 @@ A configuração administrativa permite adicionar categorias, posições e cargo
 
 A lista exibe apenas dados esportivos e status; documentos, saúde e contatos pessoais ficam restritos à edição administrativa. A foto enviada é validada, redimensionada, convertida para JPEG e armazenada como BYTEA no PostgreSQL, sem depender do armazenamento efêmero da hospedagem. Fotos aceitam até 5 MB no envio e são limitadas a 500 KB após otimização.
 
-A estrutura é gerada pelo instalador único. Após aplicar primeiro a migration de autenticação, aplique a migration de atletas explicitamente com `php setup/install.php --migrate-athletes`. O comando altera o banco selecionado em `config/conf.php` ou `DATABASE_URL`; não é executado automaticamente.
+O código de Atletas é mantido em `modules/atletas/`; o instalador não gera sua estrutura. Após aplicar a migration de autenticação, aplique a migration de atletas explicitamente com `php setup/install.php --migrate-athletes`. O comando altera o banco selecionado em `config/conf.php` ou `DATABASE_URL`; não é executado automaticamente.
+
+---
+
+# 48. Estado atual da arquitetura
+
+```text
+┌─────────────────────────────────────────────┐
+│              SISTEMA FLAG                   │
+├─────────────────────────────────────────────┤
+│ PHP 8.x sem framework                      │
+│ MVC modular independente                    │
+│ HTML5 semântico + CSS3 próprio + JS puro    │
+│ Ícones nativos via App\Core\View::icon()   │
+│ PDO PostgreSQL (Neon - Nuvem)               │
+│ Local: Laragon com Nginx                    │
+│ Homologação: Vercel (Serverless)            │
+├─────────────────────────────────────────────┤
+│ Módulo Padrão (Default) obrigatório         │
+│ Módulos Atletas e Eventos opcionais         │
+│ Login em 2 etapas com verificação e foto    │
+│ Logout compacto na barra superior           │
+│ Versionamento granular de assets            │
+│ Sem dependência obrigatória de Node/npm     │
+└─────────────────────────────────────────────┘
+```
+
+---
+
+# 49. Setup do projeto e Histórico de Restauração
+
+O instalador em `setup/install.php` atua como runner de migrations explícitas e preparador de diretórios de runtime. Não gera código nem altera o banco sem comando específico.
+
+Comandos disponíveis:
+
+```text
+php setup/install.php                       Prepara diretórios de runtime
+php setup/install.php --check-db           Valida a conexão PostgreSQL
+php setup/install.php --migrate-system     Aplica o esquema do módulo padrão
+php setup/install.php --migrate-auth       Aplica o esquema de autenticação
+php setup/install.php --migrate-athletes   Aplica o esquema de atletas
+php setup/install.php --migrate-events     Aplica o esquema de eventos
+php setup/install.php --migrate-all        Aplica todos os esquemas
+php setup/install.php --migrate-local-config Migra configuração local antiga
+php setup/install.php --create-admin      Cria o administrador inicial de teste
+```
+
+### Histórico de Pontos de Restauração (`restore-points/`)
+
+1. **`sistema-flag-20261022-141919-before-reference-consolidation.zip`**
+   - Ponto anterior à consolidação inicial dos módulos e referências.
+2. **`sistema-flag-20261022-163500-login-stepper-and-icons-update.zip`**
+   - Consolidação da tela de login em 2 etapas (verificação assíncrona de e-mail, foto/avatar do usuário, transições suaves).
+   - Catálogo nativo de ícones expandido (`arrow-right`, `arrow-left`, `user`, `logout`).
+   - Botão de sair compacto e limpo no cabeçalho.
+   - Restauração de todas as diretivas conceituais do README original e integração da regra de promoção de componentes modulares.

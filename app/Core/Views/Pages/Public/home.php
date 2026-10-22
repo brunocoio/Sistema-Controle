@@ -3,7 +3,7 @@
         <p class="eyebrow"><span class="eyebrow-line"></span> SISTEMA DE GESTÃO PARA FLAG FOOTBALL</p>
         <h1 id="hero-title">Mais organização.<br><span>Mais jogo.</span></h1>
         <p class="hero-copy">Uma plataforma em construção para apoiar a rotina esportiva e aproximar atletas, equipes e comissão.</p>
-        <a class="button" href="#sobre">Conheça o projeto <span aria-hidden="true">↓</span></a>
+        <?php if (\App\Core\Modules::available('eventos')): ?><a class="button" href="eventos">Ver agenda esportiva <span aria-hidden="true">→</span></a><?php endif; ?>
         <div class="hero-orbit orbit-one" aria-hidden="true"></div>
         <div class="hero-orbit orbit-two" aria-hidden="true"></div>
         <div class="hero-ball" aria-hidden="true"><span>FLAG</span></div>

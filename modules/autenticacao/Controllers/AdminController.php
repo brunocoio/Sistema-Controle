@@ -28,6 +28,7 @@ final class AdminController
 
         $escape = [View::class, 'escape'];
         $appName = (string) ($config['app']['name'] ?? 'Sistema FLAG');
+        $adminActiveModule = 'home';
         require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'admin.php';
     }
 }

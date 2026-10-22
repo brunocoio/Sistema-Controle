@@ -2,15 +2,10 @@
     'use strict';
 
     const configEditors = document.querySelectorAll('[data-config-editor]');
-    const statusMessage = document.querySelector('[data-category-status]');
+    const statusMessage = document.querySelector('[data-app-toast]');
     if (statusMessage && statusMessage.textContent.trim() !== '') statusMessage.hidden = false;
     const showCategoryMessage = (message, tone = 'success') => {
-        if (!statusMessage) return;
-        statusMessage.textContent = message;
-        statusMessage.classList.remove('is-success', 'is-warning', 'is-danger', 'is-error');
-        statusMessage.classList.add(`is-${tone}`);
-        statusMessage.hidden = false;
-        window.setTimeout(() => { statusMessage.hidden = true; }, 4500);
+        if (window.AppUI?.showToast) window.AppUI.showToast(message, tone);
     };
     const focusCatalogItem = (selector) => {
         if (!selector) return;
@@ -25,7 +20,16 @@
         if (feedback) {
             sessionStorage.removeItem('categoryActionFeedback');
             showCategoryMessage(feedback.message || 'Registro salvo.', feedback.tone || 'success');
-            window.requestAnimationFrame(() => focusCatalogItem(feedback.selector));
+            const restoreCatalogFocus = () => window.setTimeout(() => {
+                focusCatalogItem(feedback.selector);
+                if (window.location.hash) {
+                    const cleanUrl = new URL(window.location.href);
+                    cleanUrl.hash = '';
+                    window.history.replaceState(null, document.title, cleanUrl);
+                }
+            }, 40);
+            if (document.readyState === 'complete') restoreCatalogFocus();
+            else window.addEventListener('load', restoreCatalogFocus, { once: true });
         }
     } catch { sessionStorage.removeItem('categoryActionFeedback'); }
     const deleteDialog = document.querySelector('[data-delete-dialog]');
@@ -41,11 +45,11 @@
             if (!(form instanceof HTMLFormElement)) return closeDeleteDialog();
             const button = form.querySelector('button[type="submit"]');
             button.disabled = true;
+            let responseStatus = null;
             try {
                 const response = await fetch(form.getAttribute('action') || window.location.href, { method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: { Accept: 'application/json' } });
-                const text = await response.text();
-                let result;
-                try { result = JSON.parse(text); } catch { throw new Error('O servidor não retornou uma resposta válida. Atualize a página e tente novamente.'); }
+                responseStatus = response.status;
+                const result = await window.AppUI.readJsonResponse(response);
                 if (!response.ok || !result.ok) throw new Error(result.message || 'Não foi possível excluir o registro.');
                 const anchorSelector = form.dataset.anchorSelector;
                 document.querySelector(form.dataset.removeSelector)?.remove();
@@ -53,6 +57,7 @@
                 showCategoryMessage(result.message || 'Registro excluído.', 'danger');
                 focusCatalogItem(anchorSelector);
             } catch (error) {
+                window.AppUI?.logRequestError('Excluir configuração', error, responseStatus);
                 closeDeleteDialog();
                 showCategoryMessage(error instanceof Error ? error.message : 'Não foi possível excluir o registro.', 'error');
                 button.disabled = false;
@@ -101,18 +106,21 @@
             const formAction = form.elements.namedItem('action').value;
             if (!['create-category', 'update-category', 'add-position', 'update-position', 'add-role', 'update-role'].includes(formAction)) return;
             event.preventDefault();
+            let responseStatus = null;
             try {
                 const response = await fetch(form.getAttribute('action') || window.location.href, { method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: { Accept: 'application/json' } });
-                const text = await response.text();
-                let result;
-                try { result = JSON.parse(text); } catch { throw new Error('O servidor não retornou uma resposta válida. Atualize a página e tente novamente.'); }
+                responseStatus = response.status;
+                const result = await window.AppUI.readJsonResponse(response);
                 if (!response.ok || !result.ok) throw new Error(result.message || 'Não foi possível salvar as alterações.');
                 const id = result.id || form.elements.namedItem('id').value;
-                const selector = result.type === 'category' ? `[data-category-row="${id}"]` : (result.type === 'position' ? `[data-position-row="${id}"]` : `[data-role-row="${id}"]`);
+                const targetId = result.type === 'category' ? `category-row-${id}` : (result.type === 'position' ? `position-row-${id}` : `role-row-${id}`);
+                const selector = `#${targetId}`;
                 const isUpdate = result.action === 'update';
                 try { sessionStorage.setItem('categoryActionFeedback', JSON.stringify({ message: result.message || (isUpdate ? 'Alterações salvas.' : 'Registro cadastrado.'), selector, tone: isUpdate ? 'warning' : 'success' })); } catch { /* optional feedback when storage is disabled */ }
+                window.location.hash = targetId;
                 window.location.reload();
             } catch (error) {
+                window.AppUI?.logRequestError('Salvar configuração de atleta', error, responseStatus);
                 showCategoryMessage(error instanceof Error ? error.message : 'Não foi possível salvar as alterações.', 'error');
             }
         });
@@ -143,10 +151,11 @@
                 .replace(/\+/g, '-')
                 .replace(/\//g, '_')
                 .replace(/=+$/, '');
-            window.location.assign(new URL(`atletas-filtros-${token}`, window.location.href));
+            window.location.assign(new URL(`atletas.php?state=${encodeURIComponent(token)}`, window.location.href));
         });
         const initialSearch = searchInput ? searchInput.value.trim() : '';
-        const cleanFilterRoute = /\/admin\/atletas-filtros-[A-Za-z0-9_-]+$/.test(window.location.pathname);
+        const cleanFilterRoute = new URLSearchParams(window.location.search).has('state')
+            || /\/admin\/atletas-filtros-[A-Za-z0-9_-]+$/.test(window.location.pathname);
         let searchHasStarted = Array.from(initialSearch).length >= 3
             || (initialSearch !== '' && (cleanFilterRoute || new URLSearchParams(window.location.search).has('q')));
         searchInput?.addEventListener('input', () => {
