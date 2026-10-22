@@ -16,7 +16,7 @@ return [
         'debug' => false,
     ],
     'assets' => [
-        'version' => '1.0.8',
+        'version' => '1.0.9',
     ],
     'database' => [
         'url' => 'xxx',
