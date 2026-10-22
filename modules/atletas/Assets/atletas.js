@@ -24,7 +24,7 @@
             const button = form.querySelector('button[type="submit"]');
             button.disabled = true;
             try {
-                const response = await fetch(form.action, { method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: { Accept: 'application/json' } });
+                const response = await fetch(form.getAttribute('action') || window.location.href, { method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: { Accept: 'application/json' } });
                 const text = await response.text();
                 let result;
                 try { result = JSON.parse(text); } catch { throw new Error('O servidor não retornou uma resposta válida. Atualize a página e tente novamente.'); }
@@ -81,7 +81,7 @@
             if (!form.elements.namedItem('action').value.startsWith('update-')) return;
             event.preventDefault();
             try {
-                const response = await fetch(form.action, { method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: { Accept: 'application/json' } });
+                const response = await fetch(form.getAttribute('action') || window.location.href, { method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: { Accept: 'application/json' } });
                 const text = await response.text();
                 let result;
                 try { result = JSON.parse(text); } catch { throw new Error('O servidor não retornou uma resposta válida. Atualize a página e tente novamente.'); }
