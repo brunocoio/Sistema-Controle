@@ -32,9 +32,11 @@ final class AthleteModel
         $conditions = [];
         if ($activeOnly) $conditions[] = 'ativo = TRUE';
         if ($search !== '') $conditions[] = '(nome ILIKE :pattern_name OR apelido ILIKE :pattern_alias)';
-        $sql = 'SELECT id, nome, apelido, genero, data_nascimento, ativo, (foto IS NOT NULL) AS tem_foto
-                FROM atletas' . ($conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions)) . '
-                ORDER BY lower(nome), id LIMIT :limit OFFSET :offset';
+        $sql = "SELECT id, nome, apelido, genero, data_nascimento, ativo, (foto IS NOT NULL) AS tem_foto,
+                       CASE WHEN foto IS NOT NULL THEN md5(encode(foto, 'base64')) END AS foto_version
+                FROM atletas";
+        if ($conditions !== []) $sql .= ' WHERE ' . implode(' AND ', $conditions);
+        $sql .= ' ORDER BY lower(nome), id LIMIT :limit OFFSET :offset';
         $statement = Database::connection()->prepare($sql);
         if ($search !== '') {
             $pattern = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
@@ -192,7 +194,9 @@ final class AthleteModel
 
     public function find(int $id): ?array
     {
-        $statement = Database::connection()->prepare('SELECT *, (foto IS NOT NULL) AS tem_foto FROM atletas WHERE id = :id');
+        $statement = Database::connection()->prepare("SELECT *, (foto IS NOT NULL) AS tem_foto,
+            CASE WHEN foto IS NOT NULL THEN md5(encode(foto, 'base64')) END AS foto_version
+            FROM atletas WHERE id = :id");
         $statement->execute(['id' => $id]);
         $row = $statement->fetch();
         return is_array($row) ? $row : null;

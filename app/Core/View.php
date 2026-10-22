@@ -40,7 +40,11 @@ final class View
                 throw new RuntimeException('Caminho de recurso local inválido.');
             }
         }
-        $version = $config['assets']['version'] ?? '1.0.0';
+        $assetFile = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $path);
+        $contentVersion = is_file($assetFile) ? hash_file('sha256', $assetFile) : false;
+        $version = is_string($contentVersion)
+            ? substr($contentVersion, 0, 16)
+            : ($config['assets']['version'] ?? '1.0.0');
         if (!is_string($version) || preg_match('/\A[A-Za-z0-9][A-Za-z0-9._-]{0,63}\z/D', $version) !== 1) {
             throw new RuntimeException('Versão de recursos estáticos inválida.');
         }
