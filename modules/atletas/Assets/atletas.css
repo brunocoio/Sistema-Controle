@@ -85,8 +85,14 @@
 .category-row-heading{justify-content:space-between;gap:14px;margin-bottom:14px}
 .category-row-heading h3{margin:0}
 .category-item-actions form{margin:0}
-.category-item-actions button{min-height:30px;padding:4px 9px;font-size:12px}
-.category-delete-button{color:#a32929}
+.category-item-actions button{display:grid;width:34px;min-height:34px;padding:7px;place-items:center;border:1px solid transparent;border-radius:6px;cursor:pointer;transition:background-color .15s ease,border-color .15s ease,transform .15s ease}
+.category-item-actions button:hover{transform:translateY(-1px)}
+.category-item-actions button:focus-visible{outline:3px solid #77a9ed;outline-offset:2px}
+.category-item-actions svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.category-edit-button{background:#fff3cd;color:#8a6400;border-color:#ffecaa!important}
+.category-edit-button:hover{background:#ffe69c}
+.category-delete-button{background:#f8d7da;color:#a32929;border-color:#f1bfc4!important}
+.category-delete-button:hover{background:#f1bfc4}
 .category-editor-actions{flex-wrap:wrap}
 .category-position-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:5px 0}
 .category-position-row .category-item-actions{flex:none}
