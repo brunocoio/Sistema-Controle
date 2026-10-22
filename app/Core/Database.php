@@ -80,22 +80,21 @@ final class Database
 
             $hostLabel = explode('.', $host, 2)[0];
             $endpointId = preg_replace('/-pooler\z/', '', $hostLabel);
-            $endpointOption = '';
+            $databaseName = $database;
             if (str_starts_with($hostLabel, 'ep-')) {
                 if (!is_string($endpointId) || preg_match('/\Aep-[a-zA-Z0-9-]+\z/', $endpointId) !== 1) {
                     throw new RuntimeException('Identificador do endpoint PostgreSQL inválido.');
                 }
-                $endpointOption = ";options='endpoint=" . $endpointId . "'";
+                $databaseName .= ' options=endpoint=' . $endpointId;
             }
 
             $dsn = sprintf(
-                'pgsql:host=%s;port=%d;dbname=%s;sslmode=%s;connect_timeout=%d%s',
+                'pgsql:host=%s;port=%d;dbname=%s;sslmode=%s;connect_timeout=%d',
                 $host,
                 $port,
-                $database,
+                $databaseName,
                 $sslmode,
-                max(1, min($timeout, 30)),
-                $endpointOption
+                max(1, min($timeout, 30))
             );
             self::$connection = new PDO($dsn, $username, $password, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
