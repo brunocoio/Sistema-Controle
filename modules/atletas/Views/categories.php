@@ -25,7 +25,7 @@ $appName = (string) ($config['app']['name'] ?? 'Sistema FLAG');
             <div class="category-form-heading"><span>01</span><div><h2 data-editor-title>Nova categoria</h2><p>Crie uma modalidade para um gênero específico.</p></div></div>
             <label>Nome da modalidade<input name="modalidade" maxlength="40" placeholder="Ex.: X12" required></label>
             <label>Gênero da categoria<select name="genero" required><option value="">Selecione o gênero</option><option value="masculino">Masculino</option><option value="feminino">Feminino</option></select></label>
-            <p class="category-form-help">Ataque, defesa e time especial serão criados automaticamente para esta categoria.</p><div class="category-editor-actions"><button class="athlete-button" type="submit" data-editor-submit>Criar categoria</button><button class="button-secondary" type="button" data-editor-cancel hidden>Cancelar edição</button></div>
+            <p class="category-form-help">Ataque, defesa e time especial serão criados automaticamente para esta categoria.</p><div class="category-editor-actions"><button class="athlete-button" type="submit" data-editor-submit>Criar categoria</button><button class="athlete-button category-cancel-button" type="button" data-editor-cancel hidden>Cancelar edição</button></div>
         </form>
         <form id="position-editor" class="category-config-card athlete-form" method="post" action="atletas-categorias" data-config-editor="position">
             <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="add-position"><input type="hidden" name="id" value="">
@@ -33,13 +33,13 @@ $appName = (string) ($config['app']['name'] ?? 'Sistema FLAG');
             <label>Categoria<select name="categoria_id" required><option value="">Selecione uma categoria</option><?php foreach ($categoryOptions as $category): ?><option value="<?= $category['id'] ?>"><?= $escape($category['modalidade']) ?> · <?= $category['genero'] === 'masculino' ? 'Masculino' : 'Feminino' ?></option><?php endforeach; ?></select></label>
             <label>Side<select name="side" required><option value="">Selecione um side</option><option value="ataque">Ataque</option><option value="defesa">Defesa</option><option value="time_especial">Time especial</option></select></label>
             <label>Nome da posição<input name="nome_posicao" maxlength="60" placeholder="Ex.: QB, LB ou kicker" required></label>
-            <p class="category-form-help">O nome da posição deve ser único na categoria, mesmo em sides diferentes.</p><div class="category-editor-actions"><button class="athlete-button" type="submit" data-editor-submit>Adicionar posição</button><button class="button-secondary" type="button" data-editor-cancel hidden>Cancelar edição</button></div>
+            <p class="category-form-help">O nome da posição deve ser único na categoria, mesmo em sides diferentes.</p><div class="category-editor-actions"><button class="athlete-button" type="submit" data-editor-submit>Adicionar posição</button><button class="athlete-button category-cancel-button" type="button" data-editor-cancel hidden>Cancelar edição</button></div>
         </form>
         <form id="role-editor" class="category-config-card athlete-form" method="post" action="atletas-categorias" data-config-editor="role">
             <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="add-role"><input type="hidden" name="id" value="">
             <div class="category-form-heading"><span>03</span><div><h2 data-editor-title>Novo cargo</h2><p>Cadastre uma função para vincular a pessoas em cada categoria.</p></div></div>
             <label>Nome do cargo<input name="nome_cargo" maxlength="60" placeholder="Ex.: Preparador físico" required></label>
-            <p class="category-form-help">Um atleta pode ter mais de um cargo, e os cargos podem mudar de uma categoria para outra.</p><div class="category-editor-actions"><button class="athlete-button" type="submit" data-editor-submit>Cadastrar cargo</button><button class="button-secondary" type="button" data-editor-cancel hidden>Cancelar edição</button></div>
+            <p class="category-form-help">Um atleta pode ter mais de um cargo, e os cargos podem mudar de uma categoria para outra.</p><div class="category-editor-actions"><button class="athlete-button" type="submit" data-editor-submit>Cadastrar cargo</button><button class="athlete-button category-cancel-button" type="button" data-editor-cancel hidden>Cancelar edição</button></div>
         </form>
     </div>
     <section class="category-catalog"><h2>Catálogo atual</h2>

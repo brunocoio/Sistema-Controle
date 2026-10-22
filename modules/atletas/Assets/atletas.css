@@ -76,6 +76,9 @@
 .category-form-heading p{margin:5px 0 0;color:var(--muted);font-size:13px;line-height:1.5}
 .category-form-help{margin:0;padding:10px 12px;border-radius:5px;background:#f1f7fc;color:#44536b;font-size:12px;line-height:1.55}
 .category-config-card>.athlete-button{justify-self:start;margin-top:0}
+.category-editor-actions .athlete-button{min-height:42px;padding:0 16px;font:inherit;font-size:14px;font-weight:750;line-height:1.2}
+.category-editor-actions .category-cancel-button{background:#667085;color:#fff}
+.category-editor-actions .category-cancel-button:hover{background:#475467}
 .category-catalog{display:grid;gap:12px}
 .category-catalog>h2{margin:0}
 .category-catalog-card{padding:18px;border:1px solid var(--line);border-radius:7px;background:#fff}
