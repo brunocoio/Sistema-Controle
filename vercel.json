@@ -26,7 +26,7 @@
       "destination": "/admin/atletas.php?route=categories"
     },
     {
-      "source": "/admin/editar/:token",
+      "source": "/admin/editar-:token",
       "destination": "/admin/atletas.php?route=edit&token=:token"
     },
     {

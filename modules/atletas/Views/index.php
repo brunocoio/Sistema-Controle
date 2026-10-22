@@ -43,7 +43,7 @@ $appName = (string) ($config['app']['name'] ?? 'Sistema FLAG');
                 <?php foreach ($categorySummary[(int) $row['id']] ?? [] as $category): ?><p class="athlete-category-summary"><strong><?= $escape($category['modalidade']) ?> · <?= $category['genero'] === 'masculino' ? 'Masculino' : 'Feminino' ?></strong><?= $category['numero_camisa'] !== null ? ' · Camisa ' . $escape($category['numero_camisa']) : '' ?><?= !empty($category['cargos']) ? ' · Cargos: ' . $escape($category['cargos']) : '' ?></p><?php endforeach; ?>
                 <?php foreach ($positionSummary[(int) $row['id']] ?? [] as $assignment): ?><p class="athlete-assignment"><strong>· <?= $escape($assignment['side_nome']) ?>:</strong> <?= $escape($assignment['posicoes'] ?? '') ?></p><?php endforeach; ?>
             </div>
-            <span class="athlete-status <?= $isActive ? 'is-active' : 'is-inactive' ?>"><?= $isActive ? 'Ativo' : 'Inativo' ?></span><a class="athlete-link" href="editar/<?= $escape($row['edit_token']) ?>">Editar</a>
+            <span class="athlete-status <?= $isActive ? 'is-active' : 'is-inactive' ?>"><?= $isActive ? 'Ativo' : 'Inativo' ?></span><a class="athlete-link" href="editar-<?= $escape($row['edit_token']) ?>">Editar</a>
             <form method="post" action="atletas"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= (int) $row['id'] ?>"><button class="athlete-text-button" type="submit"><?= $isActive ? 'Desativar' : 'Ativar' ?></button></form>
         </article>
     <?php endforeach; ?>

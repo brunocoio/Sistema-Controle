@@ -34,7 +34,7 @@ final class AthleteController
                 $legacyDestination = match ($legacyAction) {
                     'new' => 'atletas-novo',
                     'categories' => 'atletas-categorias',
-                    'edit' => 'editar/' . $this->createEditToken($this->id($_GET['id'] ?? null)),
+                    'edit' => 'editar-' . $this->createEditToken($this->id($_GET['id'] ?? null)),
                     'photo' => 'atleta-' . $this->id($_GET['id'] ?? null) . '-foto',
                     default => null,
                 };
@@ -96,7 +96,7 @@ final class AthleteController
                     $athleteId = $this->resolveEditToken($_GET['token'] ?? null);
                     if ($athleteId === null && array_key_exists('id', $_GET)) {
                         $token = $this->createEditToken($this->id($_GET['id']));
-                        header('Location: editar/' . $token, true, 303);
+                        header('Location: editar-' . $token, true, 303);
                         exit;
                     }
                     if ($athleteId !== null) $athlete = $model->find($athleteId);
