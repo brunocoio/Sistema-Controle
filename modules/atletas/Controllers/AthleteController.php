@@ -45,6 +45,13 @@ final class AthleteController
             }
             $actionValue = $_GET['route'] ?? 'list';
             $action = is_string($actionValue) ? $actionValue : '';
+            if ($action === 'list' && $_SERVER['REQUEST_METHOD'] === 'POST'
+                && in_array($_POST['action'] ?? null, [
+                    'create-category', 'add-position', 'add-role', 'update-category', 'update-position', 'update-role',
+                    'delete-category', 'delete-position', 'delete-role',
+                ], true)) {
+                $action = 'categories';
+            }
             $hasLegacyFilters = array_key_exists('q', $_GET)
                 || array_key_exists('per_page', $_GET)
                 || array_key_exists('page', $_GET)
@@ -371,7 +378,7 @@ final class AthleteController
                 $this->categoryActionResponse(true, 'Registro excluído.');
                 $this->redirectCategories('Registro excluído.');
             }
-            if ($action === 'create-category') {
+            if (in_array($action, ['create-category', 'update-category'], true)) {
                 $modality = $_POST['modalidade'] ?? '';
                 $gender = $_POST['genero'] ?? '';
                 if (!is_string($modality) || preg_match('/\A[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}\z/', trim($modality)) !== 1

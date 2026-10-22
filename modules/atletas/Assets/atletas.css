@@ -124,6 +124,19 @@
 .cargo-chip{display:flex;align-items:center;gap:10px;padding:6px 8px 6px 11px;border-radius:999px;background:#f1f7fc;color:var(--navy);font-size:12px;font-weight:700}
 .category-action-status{position:fixed;right:20px;bottom:20px;z-index:20;max-width:min(420px,calc(100vw - 40px));padding:12px 16px;border:1px solid #b8dfc6;border-radius:6px;background:#effaf3;color:#185b32;box-shadow:0 5px 20px #14243a1f;font-size:14px}
 .category-action-status.is-error{border-color:#f0c0bd;background:#fff3f2;color:#8a2620}
+.category-delete-dialog{width:min(460px,calc(100vw - 32px));padding:0;border:0;border-radius:12px;background:#fff;color:var(--ink);box-shadow:0 24px 80px #14243a40}
+.category-delete-dialog::backdrop{background:#17243880;backdrop-filter:blur(2px)}
+.category-delete-dialog-content{display:flex;align-items:flex-start;gap:14px;padding:24px 24px 20px}
+.category-delete-dialog-icon{display:grid;width:42px;height:42px;flex:none;place-items:center;border-radius:50%;background:#fff3cd;color:#8a6400}
+.category-delete-dialog-icon svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.category-delete-dialog h2{margin:1px 0 7px;font-size:19px}
+.category-delete-dialog p{margin:0;color:var(--muted);font-size:14px;line-height:1.55}
+.category-delete-dialog-actions{display:flex;justify-content:flex-end;gap:10px;padding:16px 24px 20px;border-top:1px solid var(--line)}
+.category-delete-dialog-actions .athlete-button{min-height:40px;padding:0 16px;font:inherit;font-size:14px;font-weight:750}
+.category-delete-dialog-actions .category-cancel-button{background:#eef1f5;color:#344054}
+.category-delete-dialog-actions .category-cancel-button:hover{background:#e1e6ed}
+.category-delete-dialog-actions .category-confirm-delete-button{background:#c93636;color:#fff}
+.category-delete-dialog-actions .category-confirm-delete-button:hover{background:#a92727}
 @media(max-width:560px){.category-row-heading,.category-position-row{align-items:flex-start;flex-direction:column}.category-row-heading{margin-bottom:10px}.category-item-actions{flex-wrap:wrap}.category-position-row .category-item-actions{flex-direction:row}}
 @media(max-width:900px){.category-config-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.category-config-grid>:last-child{grid-column:1/-1}}
 @media(max-width:760px){.athlete-toolbar{align-items:stretch;flex-direction:column}.athlete-toolbar-actions{align-items:stretch}.athlete-toolbar-actions .athlete-button{align-self:flex-start}.category-config-grid,.athlete-side-groups,.category-catalog-sides{grid-template-columns:1fr}.category-config-grid>:last-child{grid-column:auto}.athlete-category-fields{grid-template-columns:1fr}}

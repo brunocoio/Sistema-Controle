@@ -56,5 +56,12 @@ $appName = (string) ($config['app']['name'] ?? 'Sistema FLAG');
     </section>
 </main>
 <div class="category-action-status" data-category-status role="status" aria-live="polite" hidden></div>
+<dialog class="category-delete-dialog" data-delete-dialog aria-labelledby="delete-dialog-title">
+    <div class="category-delete-dialog-content">
+        <span class="category-delete-dialog-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18.6A1.6 1.6 0 0 0 3.2 21h17.6a1.6 1.6 0 0 0 1.4-2.4L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span>
+        <div><h2 id="delete-dialog-title">Confirmar exclusão</h2><p>Deseja excluir <strong data-delete-item-name>este registro</strong>? Se houver atletas vinculados, o sistema bloqueará a exclusão.</p></div>
+    </div>
+    <div class="category-delete-dialog-actions"><button type="button" class="athlete-button category-cancel-button" data-delete-cancel>Cancelar</button><button type="button" class="athlete-button category-confirm-delete-button" data-delete-confirm>Excluir</button></div>
+</dialog>
 </body>
 </html>

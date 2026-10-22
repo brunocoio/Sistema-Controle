@@ -10,6 +10,38 @@
         statusMessage.classList.toggle('is-error', isError);
         statusMessage.hidden = false;
     };
+    const deleteDialog = document.querySelector('[data-delete-dialog]');
+    let pendingDeleteForm = null;
+    const closeDeleteDialog = () => {
+        if (deleteDialog instanceof HTMLDialogElement && deleteDialog.open) deleteDialog.close();
+        pendingDeleteForm = null;
+    };
+    if (deleteDialog instanceof HTMLDialogElement) {
+        deleteDialog.querySelector('[data-delete-cancel]')?.addEventListener('click', closeDeleteDialog);
+        deleteDialog.querySelector('[data-delete-confirm]')?.addEventListener('click', async () => {
+            const form = pendingDeleteForm;
+            if (!(form instanceof HTMLFormElement)) return closeDeleteDialog();
+            const button = form.querySelector('button[type="submit"]');
+            button.disabled = true;
+            try {
+                const response = await fetch(form.action, { method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: { Accept: 'application/json' } });
+                const text = await response.text();
+                let result;
+                try { result = JSON.parse(text); } catch { throw new Error('O servidor não retornou uma resposta válida. Atualize a página e tente novamente.'); }
+                if (!response.ok || !result.ok) throw new Error(result.message || 'Não foi possível excluir o registro.');
+                document.querySelector(form.dataset.removeSelector)?.remove();
+                closeDeleteDialog();
+                showCategoryMessage(result.message || 'Registro excluído.');
+            } catch (error) {
+                closeDeleteDialog();
+                showCategoryMessage(error instanceof Error ? error.message : 'Não foi possível excluir o registro.', true);
+                button.disabled = false;
+            }
+        });
+        deleteDialog.addEventListener('click', (event) => {
+            if (event.target === deleteDialog) closeDeleteDialog();
+        });
+    }
     const enterEditMode = (type, data) => {
         const form = document.querySelector(`[data-config-editor="${type}"]`);
         if (!(form instanceof HTMLFormElement)) return;
@@ -50,7 +82,9 @@
             event.preventDefault();
             try {
                 const response = await fetch(form.action, { method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: { Accept: 'application/json' } });
-                const result = await response.json();
+                const text = await response.text();
+                let result;
+                try { result = JSON.parse(text); } catch { throw new Error('O servidor não retornou uma resposta válida. Atualize a página e tente novamente.'); }
                 if (!response.ok || !result.ok) throw new Error(result.message || 'Não foi possível salvar as alterações.');
                 window.location.reload();
             } catch (error) {
@@ -65,20 +99,11 @@
 
     document.querySelectorAll('[data-delete-config]').forEach((form) => form.addEventListener('submit', async (event) => {
         event.preventDefault();
-        if (!window.confirm(`Excluir ${form.dataset.itemName}? Se houver atletas vinculados, o sistema vai bloquear a exclusão.`)) return;
-        const button = form.querySelector('button[type="submit"]');
-        button.disabled = true;
-        try {
-            const response = await fetch(form.action, { method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: { Accept: 'application/json' } });
-            const result = await response.json();
-            if (!response.ok || !result.ok) throw new Error(result.message || 'Não foi possível excluir o registro.');
-            const item = document.querySelector(form.dataset.removeSelector);
-            item?.remove();
-            showCategoryMessage(result.message || 'Registro excluído.');
-        } catch (error) {
-            showCategoryMessage(error instanceof Error ? error.message : 'Não foi possível excluir o registro.', true);
-            button.disabled = false;
-        }
+        if (!(deleteDialog instanceof HTMLDialogElement)) return showCategoryMessage('Não foi possível abrir a confirmação. Atualize a página.', true);
+        pendingDeleteForm = form;
+        const itemName = deleteDialog.querySelector('[data-delete-item-name]');
+        if (itemName) itemName.textContent = form.dataset.itemName || 'este registro';
+        deleteDialog.showModal();
     }));
 
     const searchForm = document.querySelector('[data-athlete-search]');
