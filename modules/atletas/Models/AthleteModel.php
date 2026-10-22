@@ -13,32 +13,34 @@ final class AthleteModel
 {
     public function count(string $search, bool $activeOnly): int
     {
-        $statement = Database::connection()->prepare(
-            'SELECT count(*) FROM atletas WHERE (:active = FALSE OR ativo = TRUE)
-             AND (:search = \'\' OR nome ILIKE :pattern_name OR apelido ILIKE :pattern_alias)'
-        );
-        $statement->bindValue('active', $activeOnly, PDO::PARAM_BOOL);
-        $statement->bindValue('search', $search, PDO::PARAM_STR);
-        $pattern = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
-        $statement->bindValue('pattern_name', $pattern, PDO::PARAM_STR);
-        $statement->bindValue('pattern_alias', $pattern, PDO::PARAM_STR);
+        $conditions = [];
+        if ($activeOnly) $conditions[] = 'ativo = TRUE';
+        if ($search !== '') $conditions[] = '(nome ILIKE :pattern_name OR apelido ILIKE :pattern_alias)';
+        $sql = 'SELECT count(*) FROM atletas' . ($conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions));
+        $statement = Database::connection()->prepare($sql);
+        if ($search !== '') {
+            $pattern = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
+            $statement->bindValue('pattern_name', $pattern, PDO::PARAM_STR);
+            $statement->bindValue('pattern_alias', $pattern, PDO::PARAM_STR);
+        }
         $statement->execute();
         return (int) $statement->fetchColumn();
     }
 
     public function list(string $search, bool $activeOnly, int $limit, int $offset): array
     {
-        $statement = Database::connection()->prepare(
-            'SELECT id, nome, apelido, genero, data_nascimento, ativo, (foto IS NOT NULL) AS tem_foto
-             FROM atletas WHERE (:active = FALSE OR ativo = TRUE)
-             AND (:search = \'\' OR nome ILIKE :pattern_name OR apelido ILIKE :pattern_alias)
-             ORDER BY ativo DESC, lower(nome), id LIMIT :limit OFFSET :offset'
-        );
-        $statement->bindValue('active', $activeOnly, PDO::PARAM_BOOL);
-        $statement->bindValue('search', $search, PDO::PARAM_STR);
-        $pattern = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
-        $statement->bindValue('pattern_name', $pattern, PDO::PARAM_STR);
-        $statement->bindValue('pattern_alias', $pattern, PDO::PARAM_STR);
+        $conditions = [];
+        if ($activeOnly) $conditions[] = 'ativo = TRUE';
+        if ($search !== '') $conditions[] = '(nome ILIKE :pattern_name OR apelido ILIKE :pattern_alias)';
+        $sql = 'SELECT id, nome, apelido, genero, data_nascimento, ativo, (foto IS NOT NULL) AS tem_foto
+                FROM atletas' . ($conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions)) . '
+                ORDER BY ativo DESC, lower(nome), id LIMIT :limit OFFSET :offset';
+        $statement = Database::connection()->prepare($sql);
+        if ($search !== '') {
+            $pattern = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
+            $statement->bindValue('pattern_name', $pattern, PDO::PARAM_STR);
+            $statement->bindValue('pattern_alias', $pattern, PDO::PARAM_STR);
+        }
         $statement->bindValue('limit', $limit, PDO::PARAM_INT);
         $statement->bindValue('offset', $offset, PDO::PARAM_INT);
         $statement->execute();

@@ -5,9 +5,18 @@
     if (searchForm instanceof HTMLFormElement) {
         const searchInput = searchForm.querySelector('input[name="q"]');
         let searchTimer;
+        const initialSearch = searchInput ? searchInput.value.trim() : '';
+        let searchHasStarted = Array.from(initialSearch).length >= 3
+            || (initialSearch !== '' && new URLSearchParams(window.location.search).has('q'));
         searchInput?.addEventListener('input', () => {
+            const searchLength = Array.from(searchInput.value.trim()).length;
+            const shouldSearch = searchHasStarted || searchLength >= 3 || searchLength === 0;
             window.clearTimeout(searchTimer);
-            searchTimer = window.setTimeout(() => searchForm.requestSubmit(), 250);
+            if (searchLength >= 3) searchHasStarted = true;
+            if (searchLength === 0) searchHasStarted = false;
+            if (shouldSearch) {
+                searchTimer = window.setTimeout(() => searchForm.requestSubmit(), 250);
+            }
         });
         searchForm.querySelectorAll('select').forEach((select) => {
             select.addEventListener('change', () => searchForm.requestSubmit());
