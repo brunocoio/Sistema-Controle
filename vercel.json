@@ -110,6 +110,18 @@
       "destination": "/admin/eventos.php"
     },
     {
+      "source": "/admin/financeiro",
+      "destination": "/admin/financeiro.php"
+    },
+    {
+      "source": "/admin/financeiro-equipe",
+      "destination": "/admin/financeiro.php?screen=team"
+    },
+    {
+      "source": "/admin/meu-financeiro",
+      "destination": "/admin/financeiro.php?screen=account"
+    },
+    {
       "source": "/evento-imagem-:id",
       "destination": "/eventos.php?image=:id"
     },

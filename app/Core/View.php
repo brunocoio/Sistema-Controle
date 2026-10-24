@@ -29,6 +29,7 @@ final class View
             'athletes' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.4 18.6c-2-2-1.6-7.2 2.3-11.1s9.1-4.3 11.1-2.3 1.6 7.2-2.3 11.1-9.1 4.3-11.1 2.3Z"/><path d="m8 8 8 8m-6-10 2-2m0 6 2-2m0 6 2-2"/></svg>',
             'users' => '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0M18.5 5.5a3 3 0 0 1 2 5.5M20 14a4.5 4.5 0 0 1 2 3.5"/></svg>',
             'events' => '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M8 14h3M8 17h6"/></svg>',
+            'finance' => '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3m5 0h2"/><path d="M7 5V3m10 2V3"/></svg>',
             'modules' => '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>',
             'menu' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
             'shield' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></svg>',

@@ -46,6 +46,10 @@ declare(strict_types=1);
             <p>Organize jogos, treinos, amistosos e compromissos em uma área própria.</p>
             <div class="admin-card-actions"><a class="button" href="eventos">Gerenciar eventos <span class="app-inline-icon" aria-hidden="true">→</span></a></div>
         </section><?php endif; ?>
+        <?php if (\App\Core\Modules::available('financeiro')): ?>
+            <?php if (($user['role'] ?? '') === 'admin'): ?><section class="admin-card"><p class="admin-card-kicker">GESTÃO E PRESTAÇÃO DE CONTAS</p><h2>Financeiro</h2><p>Gerencie categorias, entradas, despesas, regras de cobrança, isenções e pagamentos.</p><div class="admin-card-actions"><a class="button" href="financeiro">Abrir financeiro <span class="app-inline-icon" aria-hidden="true">→</span></a></div></section><?php endif; ?>
+            <section class="admin-card"><p class="admin-card-kicker">ACESSO DA EQUIPE</p><h2>Situação financeira</h2><p>Consulte a regularidade dos atletas. Os valores e detalhes permanecem privados para cada pessoa.</p><div class="admin-card-actions"><a class="button" href="financeiro-equipe">Ver situação da equipe</a><a class="app-button app-button-outline" href="meu-financeiro">Minha situação</a></div></section>
+        <?php endif; ?>
     </div>
 </main>
 <script src="<?= $escape(\App\Core\View::assetUrl('../assets/js/app.js', $config)) ?>" defer></script>

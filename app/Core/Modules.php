@@ -10,6 +10,7 @@ final class Modules
         'atletas' => ['title' => 'Atletas', 'description' => 'Cadastros e gestão esportiva da equipe.', 'admin_href' => 'atletas', 'icon' => 'athletes', 'toggleable' => true],
         'usuarios' => ['title' => 'Usuários', 'description' => 'Contas de acesso e vínculos com atletas.', 'admin_href' => 'usuarios', 'icon' => 'users', 'toggleable' => true],
         'eventos' => ['title' => 'Eventos', 'description' => 'Jogos, treinos, amistosos e compromissos.', 'admin_href' => 'eventos', 'icon' => 'events', 'toggleable' => true],
+        'financeiro' => ['title' => 'Financeiro', 'description' => 'Contribuições, pagamentos e prestação de contas.', 'admin_href' => 'financeiro', 'icon' => 'finance', 'toggleable' => true],
     ];
 
     private const FILES = [
@@ -49,6 +50,17 @@ final class Modules
             'modules/eventos/Views/public.php',
             'modules/eventos/Assets/eventos.css',
             'modules/eventos/Assets/eventos.js',
+        ],
+        'financeiro' => [
+            'admin/financeiro.php',
+            'modules/financeiro/Controllers/FinanceController.php',
+            'modules/financeiro/Models/FinanceModel.php',
+            'modules/financeiro/Views/manager.php',
+            'modules/financeiro/Views/team.php',
+            'modules/financeiro/Views/account.php',
+            'modules/financeiro/Views/unavailable.php',
+            'modules/financeiro/Assets/financeiro.css',
+            'modules/financeiro/Database/migrations/001_financeiro.sql',
         ],
     ];
 
