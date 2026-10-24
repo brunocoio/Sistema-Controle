@@ -27,8 +27,10 @@ $adminActiveModule = 'usuarios';
                 <?php if ($row['atleta_id'] !== null): ?><p class="users-athlete-link">Atleta vinculado: <a href="editar-<?= $escape($row['athlete_edit_token']) ?>"><?= $escape($row['atleta_nome']) ?></a></p><?php else: ?><p class="users-athlete-empty">Sem vínculo com atleta</p><?php endif; ?>
             </div>
             <span class="users-role"><?= $escape($functionLabels === [] ? ucfirst((string) $row['perfil']) : implode(' · ', $functionLabels)) ?></span><span class="users-status <?= $isActive ? 'is-active' : 'is-inactive' ?>"><?= $isActive ? 'Ativo' : 'Inativo' ?></span>
-            <a class="app-button app-button-outline" href="usuario-editar-<?= $escape($row['edit_token']) ?>">Editar</a>
-            <?php if ((int) $row['id'] !== (int) ($_SESSION['user']['id'] ?? 0)): ?><form method="post" action="usuarios"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= (int) $row['id'] ?>"><button class="app-button app-button-subtle" type="submit"><?= $isActive ? 'Desativar' : 'Ativar' ?></button></form><?php else: ?><span class="users-current-account">Sua conta</span><?php endif; ?>
+            <div class="users-card-actions">
+                <a class="athlete-icon-action is-edit" href="usuario-editar-<?= $escape($row['edit_token']) ?>" title="Editar usuário" aria-label="Editar usuário <?= $escape($row['nome']) ?>"><?= \App\Core\View::icon('edit') ?></a>
+                <?php if ((int) $row['id'] !== (int) ($_SESSION['user']['id'] ?? 0)): ?><form method="post" action="usuarios"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= (int) $row['id'] ?>"><button class="athlete-icon-action <?= $isActive ? 'is-deactivate' : 'is-activate' ?>" type="submit" title="<?= $isActive ? 'Desativar usuário' : 'Ativar usuário' ?>" aria-label="<?= $isActive ? 'Desativar usuário ' : 'Ativar usuário ' ?><?= $escape($row['nome']) ?>"><?= \App\Core\View::icon($isActive ? 'deactivate' : 'activate') ?></button></form><?php else: ?><span class="users-current-account">Sua conta</span><?php endif; ?>
+            </div>
         </article>
     <?php endforeach; ?>
     <?php if ($users === []): ?><section class="app-empty"><h2>Nenhum usuário cadastrado</h2><p>Cadastre um usuário para começar.</p><a class="app-button" href="usuarios-novo">Cadastrar usuário</a></section><?php endif; ?>
