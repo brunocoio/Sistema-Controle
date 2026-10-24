@@ -11,6 +11,8 @@ $linkedAthleteId = is_array($user ?? null) && ($user['atleta_id'] ?? null) !== n
 $athleteId = $athlete === null ? $linkedAthleteId : (int) $athlete['id'];
 $isIdentityLocked = !$isSelfProfile && $athleteId > 0;
 $getValue = static fn(string $key, mixed $default = ''): string => (string) ($values[$key] ?? $default);
+$cpfDigits = preg_replace('/\D+/', '', $getValue('cpf')) ?? '';
+$passwordValue = $getValue('password', $isEdit ? '' : $cpfDigits);
 $linkToken = is_string($linkToken ?? null) ? $linkToken : '';
 $formAction = $isSelfProfile ? 'meu-perfil' : ($isEdit ? 'usuario-' . (int) $values['id'] . '-editar' : ($athleteId > 0 ? ($linkToken !== '' ? 'usuario-atleta-' . $linkToken : 'usuario-atleta-' . $athleteId . '-novo') : 'usuarios-novo'));
 ?>
@@ -27,18 +29,19 @@ $formAction = $isSelfProfile ? 'meu-perfil' : ($isEdit ? 'usuario-' . (int) $val
 <a class="app-link" href="<?= $isSelfProfile ? 'index' : 'usuarios' ?>">← <?= $isSelfProfile ? 'Voltar ao painel' : 'Voltar aos usuários' ?></a><p class="eyebrow">GESTÃO DE ACESSO</p><h1><?= $isSelfProfile ? 'Meu perfil' : ($isEdit ? 'Editar usuário' : 'Cadastrar usuário') ?></h1>
 <?php if (is_string($notice ?? null) && $notice !== ''): ?><div class="app-toast is-success" role="status"><?= $escape($notice) ?></div><?php endif; ?>
 <?php if (is_string($error ?? null) && $error !== ''): ?><div class="app-toast is-error" role="alert"><?= $escape($error) ?></div><?php endif; ?>
-<form class="users-form app-form" method="post" action="<?= $escape($formAction) ?>">
+<form class="users-form athlete-form app-form" method="post" action="<?= $escape($formAction) ?>" data-user-password-form data-is-edit="<?= $isEdit ? '1' : '0' ?>">
 <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="save"><?php if (!$isSelfProfile): ?><input type="hidden" name="id" value="<?= $escape($getValue('id', 0)) ?>"><?php endif; ?>
 <fieldset><legend>Dados da conta</legend><div class="app-field-grid">
 <label>Nome completo *<input name="nome" maxlength="120" autocomplete="name" required value="<?= $escape($getValue('nome')) ?>"></label>
 <label>E-mail *<input name="email" type="email" maxlength="254" autocomplete="email" required value="<?= $escape($getValue('email')) ?>" <?= $isIdentityLocked ? 'readonly' : '' ?>></label>
-<label>CPF *<input name="cpf" inputmode="numeric" maxlength="14" autocomplete="off" required value="<?= $escape($getValue('cpf')) ?>" <?= $isIdentityLocked ? 'readonly' : '' ?>><small>CPF e e-mail são únicos.<?= $isIdentityLocked ? ' Para alterar esses dados, edite primeiro o cadastro do atleta.' : '' ?></small></label>
+<label>CPF *<input name="cpf" inputmode="numeric" maxlength="14" autocomplete="off" required value="<?= $escape($getValue('cpf')) ?>" data-user-cpf <?= $isIdentityLocked ? 'readonly' : '' ?>><small>CPF e e-mail são únicos.<?= $isIdentityLocked ? ' Para alterar esses dados, edite primeiro o cadastro do atleta.' : '' ?></small></label>
 <?php if (!$isSelfProfile): ?><fieldset class="users-functions"><legend>Funções na equipe *</legend><div class="users-function-options">
 <label><input type="checkbox" name="funcoes[]" value="staff" <?= in_array('staff', $functions, true) ? 'checked' : '' ?>> Staff</label>
 <label><input type="checkbox" name="funcoes[]" value="atleta" <?= in_array('atleta', $functions, true) ? 'checked' : '' ?>> Atleta</label>
 </div><small>Marque uma ou as duas funções. As permissões de cada função serão configuradas em uma etapa posterior.</small></fieldset><?php else: ?><div class="users-profile-functions"><strong>Funções:</strong> <?= $escape($functions === [] ? 'Não definidas' : implode(' e ', array_map(static fn(string $function): string => $function === 'staff' ? 'Staff' : 'Atleta', $functions))) ?></div><?php endif; ?>
 <?php if ($isSelfProfile): ?><label id="password">Nova senha (opcional)<input name="password" type="password" minlength="12" maxlength="4096" autocomplete="new-password"><small>Deixe em branco para manter a senha atual. Use ao menos 12 caracteres.</small></label>
-<?php elseif (!$isEdit): ?><p class="users-initial-password">Senha inicial: os 11 dígitos do CPF informado. No primeiro acesso, a pessoa poderá trocar ou manter essa senha.</p><?php endif; ?>
+<?php else: ?><label class="users-password-field" id="password"><?= $isEdit ? 'Nova senha temporária (opcional)' : 'Senha inicial *' ?><input name="password" type="password" maxlength="4096" autocomplete="new-password" value="<?= $escape($passwordValue) ?>" data-user-password <?= $isEdit ? '' : 'required' ?>><small><?= $isEdit ? 'Deixe em branco para manter a senha atual. Ao definir uma nova senha, a pessoa poderá trocá-la ou mantê-la no próximo acesso.' : 'O campo começa com o CPF e pode ser editado. A pessoa poderá trocar ou manter esta senha no primeiro acesso.' ?></small></label>
+<?php if ($isEdit): ?><label class="users-reset-password"><input type="checkbox" name="reset_password_to_cpf" value="1" data-reset-password-to-cpf <?= !empty($values['reset_password_to_cpf']) ? 'checked' : '' ?>> Redefinir senha para o CPF</label><?php endif; ?><?php endif; ?>
 <?php if (!$isSelfProfile): ?><label>Status<select name="ativo"><option value="1" <?= $isActive ? 'selected' : '' ?>>Ativo</option><option value="0" <?= !$isActive ? 'selected' : '' ?>>Inativo</option></select><small>Usuário inativo não poderá entrar no sistema.</small></label><?php endif; ?>
 </div></fieldset>
 <fieldset><legend>Vínculo com atleta</legend>

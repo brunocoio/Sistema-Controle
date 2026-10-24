@@ -15,15 +15,20 @@
 .users-status.is-inactive{background:#fce8e8;color:#9f3030}
 .users-current-account{color:var(--muted);font-size:12px;font-weight:700}
 .users-card form{margin:0}
-.users-form{display:grid;gap:18px;max-width:860px}
+.users-form{display:grid;gap:18px;max-width:860px;margin:24px 0;padding:24px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 8px 24px rgba(29,41,80,.05)}
 .users-form fieldset{display:grid;gap:14px}
+.users-form>fieldset{min-width:0;margin:0;padding:20px;border:1px solid #e1e5ec;border-radius:7px;background:#fff}
+.users-form>fieldset>legend{padding:0 8px;color:var(--navy);font-size:16px;font-weight:800}
 .users-functions{margin:0;padding:14px;border:1px solid var(--line);border-radius:7px;background:#fff}
 .users-function-options{display:flex;flex-wrap:wrap;gap:10px}
 .users-function-options label{display:flex;min-width:132px;align-items:center;gap:9px;padding:11px 13px;border:1px solid #d9e0e9;border-radius:7px;background:#f8fafc;color:var(--ink);font-weight:750}
 .users-function-options input{width:18px;height:18px}
 .users-profile-functions,.users-initial-password{align-self:center;padding:12px 14px;border-radius:7px;background:#eef5fc;color:#394a61;font-size:13px;line-height:1.6}
+.users-password-field{display:grid;gap:7px}
+.users-reset-password{display:flex!important;align-items:center;gap:9px;color:#394a61;font-weight:700}
+.users-reset-password input{width:18px;height:18px;accent-color:var(--blue)}
 .users-linked-athlete p{margin:5px 0}
 .users-linked-athlete{padding:13px 15px;border-radius:7px;background:#eef5fc;color:#394a61;line-height:1.6}
 .users-form-actions{display:flex;flex-wrap:wrap;gap:10px}
 @media(max-width:900px){.users-card{grid-template-columns:minmax(0,1fr) auto auto}.users-card-main{grid-column:1/-1}.users-role{grid-column:1}.users-card form{justify-self:start}}
-@media(max-width:560px){.users-page{width:min(100% - 32px,540px);margin:34px auto}.users-card{grid-template-columns:1fr 1fr;gap:10px;padding:14px}.users-card-main{grid-column:1/-1}.users-role{grid-column:auto}.users-status{justify-self:end}.users-card>a,.users-card form{width:100%}.users-card>a,.users-card form button{width:100%;justify-content:center}.users-toolbar>*{flex:1 1 auto;justify-content:center}}
+@media(max-width:560px){.users-page{width:min(100% - 32px,540px);margin:34px auto}.users-form{padding:16px}.users-form>fieldset{padding:16px}.users-card{grid-template-columns:1fr 1fr;gap:10px;padding:14px}.users-card-main{grid-column:1/-1}.users-role{grid-column:auto}.users-status{justify-self:end}.users-card>a,.users-card form{width:100%}.users-card>a,.users-card form button{width:100%;justify-content:center}.users-toolbar>*{flex:1 1 auto;justify-content:center}}

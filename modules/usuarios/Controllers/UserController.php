@@ -75,14 +75,19 @@ final class UserController
                 }
                 $data = $this->validate($validationInput, $currentUser, $profileOnly);
                 $passwordValue = $_POST['password'] ?? '';
-                $password = $profileOnly && is_string($passwordValue) ? $passwordValue : '';
+                $password = is_string($passwordValue) ? $passwordValue : '';
+                $resetPasswordToCpf = !$profileOnly && ($_POST['reset_password_to_cpf'] ?? '') === '1';
+                if ($resetPasswordToCpf) $password = $data['cpf'];
+                if (!$profileOnly && $id === 0 && $password === '') $password = $data['cpf'];
                 $errors = $data['_errors'];
-                if ($password !== '' && strlen($password) < 12) $errors[] = 'A senha deve ter pelo menos 12 caracteres.';
+                if ($password !== '' && strlen($password) < 12 && ($profileOnly || $password !== $data['cpf'])) $errors[] = 'Use o CPF como senha inicial ou informe uma senha com pelo menos 12 caracteres.';
                 if ($password !== '' && strlen($password) > 4096) $errors[] = 'A senha ultrapassou o limite permitido.';
                 unset($data['_errors'], $data['id'], $data['atleta_id']);
                 if ($errors !== []) {
                     $error = implode(' ', $errors);
                     $values = $data + ['id' => $id, 'atleta_id' => $athleteId];
+                    $values['password'] = $password;
+                    $values['reset_password_to_cpf'] = $resetPasswordToCpf;
                     $user = $id > 0 ? $model->find($id) : null;
                     $athlete = $athleteId !== null ? $model->athlete($athleteId) : null;
                     require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'form.php';
@@ -90,10 +95,10 @@ final class UserController
                 }
                 try {
                     if ($id > 0) {
-                        $model->update($id, $data, $password === '' ? null : $password, $athleteId);
+                        $model->update($id, $data, $password === '' ? null : $password, $athleteId, !$profileOnly);
                         $_SESSION['user_admin_notice'] = $profileOnly ? 'Seu perfil foi atualizado.' : 'Usuário atualizado.';
                     } else {
-                        $model->create($data, $athleteId);
+                        $model->create($data, $athleteId, $password);
                         $_SESSION['user_admin_notice'] = 'Usuário cadastrado.';
                     }
                     header('Location: ' . ($profileOnly ? 'meu-perfil' : 'usuarios'), true, 303);
@@ -108,6 +113,8 @@ final class UserController
                     $error = $exception->getMessage();
                 }
                 $values = $data + ['id' => $id, 'atleta_id' => $athleteId];
+                $values['password'] = $password;
+                $values['reset_password_to_cpf'] = $resetPasswordToCpf;
                 $user = $id > 0 ? $model->find($id) : null;
                 $athlete = $athleteId !== null ? $model->athlete($athleteId) : null;
                 require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'form.php';

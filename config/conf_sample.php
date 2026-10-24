@@ -11,7 +11,7 @@ declare(strict_types=1);
 return [
     'app' => [
         'name' => 'Sistema FLAG',
-        'version' => '1.3.4',
+        'version' => '1.3.5',
         'environment' => 'development',
         'debug' => false,
     ],

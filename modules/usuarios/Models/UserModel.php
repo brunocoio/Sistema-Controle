@@ -71,7 +71,7 @@ final class UserModel
         return is_array($row) ? $row : null;
     }
 
-    public function create(array $data, ?int $athleteId): int
+    public function create(array $data, ?int $athleteId, string $password): int
     {
         $db = Database::connection();
         $db->beginTransaction();
@@ -83,7 +83,7 @@ final class UserModel
             $functions = array_values(array_intersect(['staff', 'atleta'], $data['funcoes']));
             $statement->execute([
                 'name' => $data['nome'], 'email' => $data['email'], 'cpf' => $data['cpf'],
-                'password' => password_hash($data['cpf'], PASSWORD_DEFAULT), 'role' => $this->legacyProfile($functions),
+                'password' => password_hash($password, PASSWORD_DEFAULT), 'role' => $this->legacyProfile($functions),
                 'functions' => json_encode($functions, JSON_THROW_ON_ERROR),
                 'active' => $data['ativo'] ? 'true' : 'false',
             ]);
@@ -97,7 +97,7 @@ final class UserModel
         }
     }
 
-    public function update(int $id, array $data, ?string $password, ?int $athleteId): void
+    public function update(int $id, array $data, ?string $password, ?int $athleteId, bool $passwordResetPending = false): void
     {
         $db = Database::connection();
         $db->beginTransaction();
@@ -112,7 +112,7 @@ final class UserModel
             $functions = array_values(array_intersect(['staff', 'atleta'], $data['funcoes'] ?? []));
             $role = (string) $current['perfil'] === 'admin' ? 'admin' : $this->legacyProfile($functions);
             $sql = 'UPDATE usuarios SET nome=:name, email=:email, cpf=:cpf, perfil=:role, funcoes=CAST(:functions AS JSONB), ativo=:active, atualizado_em=CURRENT_TIMESTAMP';
-            if ($password !== null) $sql .= ', password_hash=:password, senha_inicial_pendente=FALSE';
+            if ($password !== null) $sql .= ', password_hash=:password, senha_inicial_pendente=:password_pending';
             $sql .= ' WHERE id=:id';
             $statement = $db->prepare($sql);
             $params = [
@@ -120,7 +120,10 @@ final class UserModel
                 'role' => $role, 'functions' => json_encode($functions, JSON_THROW_ON_ERROR),
                 'active' => $data['ativo'] ? 'true' : 'false',
             ];
-            if ($password !== null) $params['password'] = password_hash($password, PASSWORD_DEFAULT);
+            if ($password !== null) {
+                $params['password'] = password_hash($password, PASSWORD_DEFAULT);
+                $params['password_pending'] = $passwordResetPending ? 'true' : 'false';
+            }
             $statement->execute($params);
             if ($currentAthleteId !== null) {
                 $sync = $db->prepare('UPDATE atletas SET email=:email, cpf=:cpf, atualizado_em=CURRENT_TIMESTAMP WHERE id=:id');

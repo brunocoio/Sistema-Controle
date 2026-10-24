@@ -53,6 +53,35 @@
 
     window.AppUI = Object.freeze({ showToast, readJsonResponse, logRequestError });
 
+    const userPasswordForm = document.querySelector('[data-user-password-form]');
+    if (userPasswordForm instanceof HTMLFormElement) {
+        const cpfInput = userPasswordForm.querySelector('[data-user-cpf]');
+        const passwordInput = userPasswordForm.querySelector('[data-user-password]');
+        const resetPassword = userPasswordForm.querySelector('[data-reset-password-to-cpf]');
+        const isEdit = userPasswordForm.dataset.isEdit === '1';
+        let passwordChanged = isEdit;
+        if (cpfInput instanceof HTMLInputElement && passwordInput instanceof HTMLInputElement) {
+            cpfInput.addEventListener('input', () => {
+                if (!passwordChanged && !isEdit) passwordInput.value = cpfInput.value.replace(/\D/g, '');
+            });
+            passwordInput.addEventListener('input', () => {
+                passwordChanged = passwordInput.value !== '';
+                if (resetPassword instanceof HTMLInputElement && passwordChanged) resetPassword.checked = false;
+            });
+            if (resetPassword instanceof HTMLInputElement) {
+                resetPassword.addEventListener('change', () => {
+                    if (resetPassword.checked) {
+                        passwordInput.value = cpfInput.value.replace(/\D/g, '');
+                        passwordChanged = true;
+                    } else {
+                        passwordInput.value = '';
+                        passwordChanged = false;
+                    }
+                });
+            }
+        }
+    }
+
     const sidebar = document.querySelector('[data-admin-sidebar]');
     const sidebarToggles = [...document.querySelectorAll('[data-admin-sidebar-toggle]')];
     const sidebarBackdrop = document.querySelector('[data-admin-sidebar-backdrop]');
