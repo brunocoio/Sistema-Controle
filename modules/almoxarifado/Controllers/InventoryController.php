@@ -150,7 +150,7 @@ final class InventoryController
         }
         if ($action === 'create-checklist') {
             $ids = $_POST['item_id'] ?? []; $quantities = $_POST['item_quantity'] ?? [];
-            if (!is_array($ids) || !is_array($quantities) || count($ids) > 12 || count($quantities) > 12) throw new RuntimeException('A lista do evento contém dados inválidos.');
+            if (!is_array($ids) || !is_array($quantities) || !array_is_list($ids) || !array_is_list($quantities) || count($ids) !== count($quantities)) throw new RuntimeException('A lista do evento contém dados inválidos.');
             $lines = [];
             foreach ($ids as $index=>$rawId) {
                 if ($rawId === '') continue;

@@ -43,10 +43,15 @@
 .inventory-collection{padding:15px;border:1px solid var(--line);border-radius:7px;background:#fff}
 .inventory-collection h3{margin:0 0 7px;font-size:15px}
 .inventory-collection p,.inventory-collection small{display:block;margin:4px 0;color:var(--muted);font-size:12px;line-height:1.5}
-.inventory-checklist-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.inventory-checklist-input{display:grid;grid-template-columns:minmax(0,1fr) 90px;align-items:end;gap:8px;padding:9px;border:1px solid #e1e5ec;border-radius:6px;background:#fff}
+.inventory-checklist-inputs{display:grid;grid-template-columns:1fr;gap:8px}
+.inventory-checklist-input{display:grid;grid-template-columns:minmax(0,1fr) 110px auto;align-items:end;gap:8px;padding:9px;border:1px solid #e1e5ec;border-radius:6px;background:#fff}
 .inventory-checklist-input label{display:grid;gap:4px;color:var(--ink);font-size:11px;font-weight:750}
 .inventory-checklist-input input,.inventory-checklist-input select{width:100%;min-height:36px;padding:6px 8px;border:1px solid #cbd2df;border-radius:5px;background:#fff;color:var(--ink);font:inherit}
+.inventory-row-button{width:38px;min-width:38px;height:38px;min-height:38px;padding:0;font-size:20px;line-height:1}
+.inventory-row-button:disabled{opacity:.45;cursor:not-allowed}
+.inventory-checklist-actions{display:flex;justify-content:flex-start;margin-top:9px}
+.inventory-checklist-actions .app-button{display:inline-flex;align-items:center;gap:8px}
+.inventory-visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 .inventory-checklist-list{display:grid;gap:11px}
 .inventory-checklist-card{display:grid;gap:12px;padding:15px;border:1px solid var(--line);border-radius:8px;background:#fff}
 .inventory-checklist-card>p{margin:0;color:var(--muted);font-size:12px}
@@ -69,4 +74,4 @@
 .inventory-personal-details h2 span{color:var(--muted);font-size:13px;font-weight:500}
 .inventory-personal-details p:not(.inventory-kicker){margin:3px 0;color:var(--muted);font-size:12px;line-height:1.5}
 @media(max-width:760px){.inventory-content{width:min(100% - 36px,540px);margin:34px auto}.inventory-panel{padding:17px}.inventory-return-line{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:560px){.inventory-checklist-inputs{grid-template-columns:1fr}.inventory-personal-card{grid-template-columns:38px minmax(0,1fr);gap:11px;padding:14px}.inventory-personal-icon{width:36px;height:36px}.inventory-personal-card>.inventory-status{grid-column:2}.inventory-category-chip{align-items:flex-start}.inventory-return-line{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.inventory-checklist-input{grid-template-columns:minmax(0,1fr) 88px auto;gap:6px;padding:8px}.inventory-personal-card{grid-template-columns:38px minmax(0,1fr);gap:11px;padding:14px}.inventory-personal-icon{width:36px;height:36px}.inventory-personal-card>.inventory-status{grid-column:2}.inventory-category-chip{align-items:flex-start}.inventory-return-line{grid-template-columns:1fr 1fr}}
