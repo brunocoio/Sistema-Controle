@@ -26,25 +26,25 @@ declare(strict_types=1);
     <h1>Bem-vindo, <?= $escape($user['name']) ?></h1>
     <p>Esta área está protegida por autenticação e autorização.</p>
     <?php if (!empty($user['first_access'])): ?><section class="admin-card first-access-card" aria-labelledby="first-access-title"><p class="admin-card-kicker">PRIMEIRO ACESSO</p><h2 id="first-access-title">Sua senha inicial está pronta</h2><p>Por segurança, você pode definir uma senha pessoal agora. Se preferir, mantenha a senha inicial e altere seus dados ou sua senha depois em Meu perfil.</p><div class="admin-card-actions"><a class="button" href="meu-perfil#password">Redefinir senha</a><form method="post" action="index"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="dismiss-first-access"><button class="app-button app-button-outline" type="submit">Manter senha atual</button></form></div></section><?php endif; ?>
-    <?php if (($user['role'] ?? '') !== 'admin'): ?><section class="admin-card"><p class="admin-card-kicker">MINHA CONTA</p><h2>Meu perfil</h2><p>Atualize seus dados e, se quiser, defina uma senha pessoal.</p><div class="admin-card-actions"><a class="button" href="meu-perfil">Editar meu perfil <span aria-hidden="true">→</span></a></div></section><?php endif; ?>
+    <?php if (($user['role'] ?? '') !== 'admin'): ?><section class="admin-card"><p class="admin-card-kicker">MINHA CONTA</p><h2>Meu perfil</h2><p>Atualize seus dados e, se quiser, defina uma senha pessoal.</p><div class="admin-card-actions"><a class="button" href="meu-perfil">Editar meu perfil <span class="app-inline-icon" aria-hidden="true">→</span></a></div></section><?php endif; ?>
     <div class="admin-dashboard-grid">
         <?php if (($user['role'] ?? '') === 'admin' && \App\Core\Modules::available('atletas')): ?><section class="admin-card">
             <p class="admin-card-kicker">GESTÃO CORPORATIVA</p>
             <h2>Atletas</h2>
             <p>Gerencie atletas, vínculos e as configurações relacionadas ao cadastro esportivo.</p>
-            <div class="admin-card-actions"><a class="button" href="atletas">Gerenciar atletas <span aria-hidden="true">→</span></a></div>
+            <div class="admin-card-actions"><a class="button" href="atletas">Gerenciar atletas <span class="app-inline-icon" aria-hidden="true">→</span></a></div>
         </section><?php endif; ?>
         <?php if (($user['role'] ?? '') === 'admin' && \App\Core\Modules::available('usuarios')): ?><section class="admin-card">
             <p class="admin-card-kicker">CONTAS E VÍNCULOS</p>
             <h2>Usuários</h2>
             <p>Gerencie contas de acesso, status e vínculos opcionais com cadastros de atletas.</p>
-            <div class="admin-card-actions"><a class="button" href="usuarios">Gerenciar usuários <span aria-hidden="true">→</span></a></div>
+            <div class="admin-card-actions"><a class="button" href="usuarios">Gerenciar usuários <span class="app-inline-icon" aria-hidden="true">→</span></a></div>
         </section><?php endif; ?>
         <?php if (($user['role'] ?? '') === 'admin' && \App\Core\Modules::available('eventos')): ?><section class="admin-card">
             <p class="admin-card-kicker">AGENDA DA EQUIPE</p>
             <h2>Eventos</h2>
             <p>Organize jogos, treinos, amistosos e compromissos em uma área própria.</p>
-            <div class="admin-card-actions"><a class="button" href="eventos">Gerenciar eventos <span aria-hidden="true">→</span></a></div>
+            <div class="admin-card-actions"><a class="button" href="eventos">Gerenciar eventos <span class="app-inline-icon" aria-hidden="true">→</span></a></div>
         </section><?php endif; ?>
     </div>
 </main>

@@ -5,7 +5,7 @@
 .users-lead{max-width:760px;color:var(--muted);font-size:15px;line-height:1.7}
 .users-toolbar{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0}
 .users-list{display:grid;gap:12px}
-.users-card{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:14px;padding:18px;border:1px solid var(--line);border-radius:7px;background:#fff;transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease}
+.users-card{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:14px;padding:24px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 8px 24px rgba(29,41,80,.05);transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease}
 .users-card:hover,.users-card:focus-within{border-color:#b8d2ee;background:#f8fbff;box-shadow:0 4px 14px #1a34500d}
 .users-card-main{min-width:0}
 .users-card-main h2{margin:0 0 5px;font-size:17px}
@@ -19,17 +19,7 @@
 .users-current-account{color:var(--muted);font-size:12px;font-weight:700}
 .users-card form{margin:0}
 .users-card-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px}
-.users-card-actions .athlete-icon-action{display:inline-grid;width:36px;height:36px;place-items:center;padding:0;border:1px solid transparent;border-radius:7px;background:#f1f3f6;color:#596579;text-decoration:none;cursor:pointer;transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .15s ease}
-.users-card-actions .athlete-icon-action:hover{transform:translateY(-1px)}
-.users-card-actions .athlete-icon-action:focus-visible{outline:3px solid #9bc7f4;outline-offset:2px}
-.users-card-actions .athlete-icon-action svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.users-card-actions .athlete-icon-action.is-edit{border-color:#ffecaa;background:#fff3cd;color:#8a6400}
-.users-card-actions .athlete-icon-action.is-edit:hover{background:#ffe69c}
-.users-card-actions .athlete-icon-action.is-deactivate{border-color:#f0c0bd;background:#fff0f0;color:#922b2b}
-.users-card-actions .athlete-icon-action.is-deactivate:hover{background:#f9dede}
-.users-card-actions .athlete-icon-action.is-activate{border-color:#bce4ca;background:#e8f7ed;color:#216c3e}
-.users-card-actions .athlete-icon-action.is-activate:hover{background:#d8f0e0}
-.users-form{display:grid;width:100%;max-width:none;gap:18px;margin:24px 0;padding:24px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 8px 24px rgba(29,41,80,.05)}
+.users-form{display:grid;width:100%;max-width:none;gap:18px;margin:24px 0;padding:26px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 8px 24px rgba(29,41,80,.05)}
 .users-form fieldset{display:grid;gap:14px}
 .users-form>fieldset{min-width:0;margin:0;padding:20px;border:1px solid #e1e5ec;border-radius:7px;background:#fff}
 .users-form>fieldset>legend{padding:0 8px;color:var(--navy);font-size:16px;font-weight:800}
@@ -45,4 +35,4 @@
 .users-linked-athlete{padding:13px 15px;border-radius:7px;background:#eef5fc;color:#394a61;line-height:1.6}
 .users-form-actions{display:flex;flex-wrap:wrap;gap:10px}
 @media(max-width:900px){.users-card{grid-template-columns:minmax(0,1fr) auto auto}.users-card-main{grid-column:1/-1}.users-role{grid-column:1}.users-card-actions{grid-column:3;grid-row:2}.users-card-actions form{justify-self:start}}
-@media(max-width:560px){.users-page{width:min(100% - 32px,540px);margin:34px auto}.users-form{padding:16px}.users-form>fieldset{padding:16px}.users-card{grid-template-columns:1fr auto;gap:10px;padding:14px}.users-card-main{grid-column:1/-1}.users-role{grid-column:1;grid-row:2}.users-status{grid-column:2;grid-row:2;justify-self:end}.users-card-actions{grid-column:1/-1;grid-row:3;justify-content:flex-start}.users-card-actions .athlete-icon-action{width:36px;height:36px}.users-toolbar>*{flex:1 1 auto;justify-content:center}}
+@media(max-width:560px){.users-page{width:min(100% - 32px,540px);margin:34px auto}.users-form{padding:16px}.users-form>fieldset{padding:16px}.users-card{grid-template-columns:1fr auto;gap:10px;padding:18px}.users-card-main{grid-column:1/-1}.users-role{grid-column:1;grid-row:2}.users-status{grid-column:2;grid-row:2;justify-self:end}.users-card-actions{grid-column:1/-1;grid-row:3;justify-content:flex-start}.users-toolbar>*{flex:1 1 auto;justify-content:center}}

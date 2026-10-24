@@ -27,20 +27,12 @@
 .athlete-status{grid-column:3;grid-row:2;justify-self:end;align-self:start;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800}
 .athlete-status.is-active{background:#e8f5ee;color:#216b42}
 .athlete-status.is-inactive{background:#f1f2f4;color:#596273}
-.athlete-icon-action{display:inline-grid;width:36px;height:36px;place-items:center;padding:0;border:1px solid transparent;border-radius:7px;background:#f1f3f6;color:#596579;text-decoration:none;cursor:pointer;transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .15s ease}
-.athlete-icon-action:hover{transform:translateY(-1px)}
-.athlete-icon-action:focus-visible{outline:3px solid #9bc7f4;outline-offset:2px}
-.athlete-icon-action svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.athlete-icon-action.is-edit{border-color:#ffecaa;background:#fff3cd;color:#8a6400}
-.athlete-icon-action.is-edit:hover{background:#ffe69c}
 .athlete-user-button.is-unlinked{border-color:#d8dde5;background:#f1f3f6;color:#596579}
 .athlete-user-button.is-unlinked:hover{background:#e5e9ef}
 .athlete-user-button.is-user-active{border-color:#bce4ca;background:#e8f7ed;color:#216c3e}
 .athlete-user-button.is-user-active:hover{background:#d8f0e0}
-.athlete-user-button.is-user-inactive,.athlete-icon-action.is-deactivate{border-color:#f0c0bd;background:#fff0f0;color:#922b2b}
-.athlete-user-button.is-user-inactive:hover,.athlete-icon-action.is-deactivate:hover{background:#f9dede}
-.athlete-icon-action.is-activate{border-color:#bce4ca;background:#e8f7ed;color:#216c3e}
-.athlete-icon-action.is-activate:hover{background:#d8f0e0}
+.athlete-user-button.is-user-inactive{border-color:#f0c0bd;background:#fff0f0;color:#922b2b}
+.athlete-user-button.is-user-inactive:hover{background:#f9dede}
 .athlete-card form{margin:0}
 .athlete-card-actions{grid-column:3;grid-row:1;display:flex;align-items:center;justify-content:flex-end;gap:8px}
 .athlete-empty{display:grid;justify-items:center;gap:12px;padding:42px 22px;border:1px dashed #b9c6d8;border-radius:8px;background:#f8fafc;text-align:center}
@@ -123,4 +115,4 @@
 @media(max-width:560px){.category-row-heading,.category-position-row{align-items:flex-start;flex-direction:column}.category-row-heading{margin-bottom:10px}.app-item-actions{flex-wrap:wrap}.category-position-row .app-item-actions{flex-direction:row}}
 @media(max-width:900px){.category-config-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.category-config-grid>:last-child{grid-column:1/-1}}
 @media(max-width:760px){.athlete-toolbar{align-items:stretch;flex-direction:column}.athlete-toolbar-actions{align-items:stretch}.athlete-toolbar-actions .app-button{align-self:flex-start}.category-config-grid,.athlete-side-groups,.category-catalog-sides{grid-template-columns:1fr}.category-config-grid>:last-child{grid-column:auto}.athlete-category-fields{grid-template-columns:1fr}}
-@media(max-width:560px){.athletes-page{width:min(100% - 32px,540px);margin:34px auto}.athlete-toolbar,.athlete-form{padding:16px}.athlete-search>div{display:grid;grid-template-columns:1fr 1fr}.athlete-search input{grid-column:1/-1}.athlete-search select,.athlete-search button{width:100%}.athlete-page-size{grid-column:1/-1;justify-content:space-between}.athlete-page-size select{width:auto}.athlete-pagination{gap:8px}.athlete-pagination .app-button{padding:0 11px}.athlete-card{grid-template-columns:56px minmax(0,1fr) auto;gap:10px;padding:14px}.athlete-photo{grid-column:1;grid-row:1 / span 2;width:56px;height:56px}.athlete-main{grid-column:2;grid-row:1 / span 2}.athlete-status{grid-column:3;grid-row:2;justify-self:end}.athlete-card-actions{grid-column:3;grid-row:1;gap:5px}.athlete-icon-action{width:32px;height:32px}.athlete-wide{grid-column:auto}.athlete-form fieldset{padding:16px}.athlete-actions{align-items:stretch;flex-direction:column}.athlete-actions .app-button{width:100%}}
+@media(max-width:560px){.athletes-page{width:min(100% - 32px,540px);margin:34px auto}.athlete-toolbar,.athlete-form{padding:16px}.athlete-search>div{display:grid;grid-template-columns:1fr 1fr}.athlete-search input{grid-column:1/-1}.athlete-search select,.athlete-search button{width:100%}.athlete-page-size{grid-column:1/-1;justify-content:space-between}.athlete-page-size select{width:auto}.athlete-pagination{gap:8px}.athlete-pagination .app-button{padding:0 11px}.athlete-card{grid-template-columns:56px minmax(0,1fr) auto;gap:10px;padding:14px}.athlete-photo{grid-column:1;grid-row:1 / span 2;width:56px;height:56px}.athlete-main{grid-column:2;grid-row:1 / span 2}.athlete-status{grid-column:3;grid-row:2;justify-self:end}.athlete-card-actions{grid-column:3;grid-row:1;gap:5px}.athlete-card-actions .app-icon-action{width:32px;height:32px}.athlete-wide{grid-column:auto}.athlete-form fieldset{padding:16px}.athlete-actions{align-items:stretch;flex-direction:column}.athlete-actions .app-button{width:100%}}

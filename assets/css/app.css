@@ -12,6 +12,17 @@
 .app-button.app-button-subtle:hover{border-color:#c9d0dc;background:#e1e6ed;color:#344054}
 .app-button.app-button-danger{border-color:#c93636;background:#c93636;color:#fff}
 .app-button.app-button-danger:hover{border-color:#a92727;background:#a92727;color:#fff}
+.app-icon-action{display:inline-grid;width:36px;height:36px;place-items:center;padding:0;border:1px solid transparent;border-radius:7px;background:#f1f3f6;color:#596579;text-decoration:none;cursor:pointer;transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .15s ease}
+.app-icon-action:hover{transform:translateY(-1px)}
+.app-icon-action:focus-visible{outline:3px solid #9bc7f4;outline-offset:2px}
+.app-icon-action svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.app-icon-action.is-edit{border-color:#ffecaa;background:#fff3cd;color:#8a6400}
+.app-icon-action.is-edit:hover{background:#ffe69c}
+.app-icon-action.is-deactivate{border-color:#f0c0bd;background:#fff0f0;color:#922b2b}
+.app-icon-action.is-deactivate:hover{background:#f9dede}
+.app-icon-action.is-activate{border-color:#bce4ca;background:#e8f7ed;color:#216c3e}
+.app-icon-action.is-activate:hover{background:#d8f0e0}
+.app-inline-icon{display:inline-grid;place-items:center;line-height:1}
 .app-link{color:var(--blue);font-size:13px;font-weight:750;text-decoration:none}
 .app-link:hover{text-decoration:underline}
 
