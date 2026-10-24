@@ -21,7 +21,7 @@ declare(strict_types=1);
         <button class="admin-logout-button" type="submit"><?= \App\Core\View::icon('logout') ?><span>Sair</span></button>
     </form>
 </header>
-<main class="admin-content">
+<main class="admin-content admin-dashboard-content">
     <p class="eyebrow">ÁREA ADMINISTRATIVA</p>
     <h1>Bem-vindo, <?= $escape($user['name']) ?></h1>
     <p>Esta área está protegida por autenticação e autorização.</p>
