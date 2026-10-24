@@ -49,7 +49,7 @@ $adminActiveModule = 'atletas';
                 <?php foreach ($positionSummary[(int) $row['id']] ?? [] as $assignment): ?><p class="athlete-assignment"><strong>· <?= $escape($assignment['side_nome']) ?>:</strong> <?= $escape($assignment['posicoes'] ?? '') ?></p><?php endforeach; ?>
             </div>
             <span class="athlete-status <?= $isActive ? 'is-active' : 'is-inactive' ?>"><?= $isActive ? 'Ativo' : 'Inativo' ?></span><a class="app-link" href="atletas.php?route=edit&amp;token=<?= $escape($row['edit_token']) ?>">Editar</a>
-            <a class="athlete-user-button <?= !$hasUser ? 'is-unlinked' : ($userIsActive ? 'is-user-active' : 'is-user-inactive') ?>" href="<?= $hasUser ? 'usuario-' . (int) $row['usuario_id'] . '-editar' : 'usuario-atleta-' . (int) $row['id'] . '-novo' ?>" title="<?= !$hasUser ? 'Vincular usuário ao atleta' : ($userIsActive ? 'Usuário ativo' : 'Usuário inativo') ?>" aria-label="<?= !$hasUser ? 'Vincular usuário ao atleta ' . $escape($row['nome']) : ($userIsActive ? 'Editar usuário ativo do atleta ' : 'Editar usuário inativo do atleta ') . $escape($row['nome']) ?>"><?= \App\Core\View::icon('user') ?><span>Usuário</span></a>
+            <a class="athlete-user-button <?= !$hasUser ? 'is-unlinked' : ($userIsActive ? 'is-user-active' : 'is-user-inactive') ?>" href="<?= $hasUser ? 'usuario-' . (int) $row['usuario_id'] . '-editar' : 'usuario-atleta-' . $escape($row['user_link_token']) ?>" title="<?= !$hasUser ? 'Vincular usuário ao atleta' : ($userIsActive ? 'Usuário ativo' : 'Usuário inativo') ?>" aria-label="<?= !$hasUser ? 'Vincular usuário ao atleta ' . $escape($row['nome']) : ($userIsActive ? 'Editar usuário ativo do atleta ' : 'Editar usuário inativo do atleta ') . $escape($row['nome']) ?>"><?= \App\Core\View::icon('user') ?><span>Usuário</span></a>
             <form method="post" action="atletas"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= (int) $row['id'] ?>"><button class="athlete-text-button" type="submit"><?= $isActive ? 'Desativar' : 'Ativar' ?></button></form>
         </article>
     <?php endforeach; ?>
@@ -63,5 +63,6 @@ $adminActiveModule = 'atletas';
 </main>
 <script src="<?= $escape(\App\Core\View::assetUrl('../assets/js/app.js', $config)) ?>" defer></script>
 <script src="<?= $escape(\App\Core\View::assetUrl('../modules/atletas/Assets/atletas.js', $config)) ?>" defer></script>
+<?php require dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'Core' . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'Layout' . DIRECTORY_SEPARATOR . 'footer.php'; ?>
 </body>
 </html>

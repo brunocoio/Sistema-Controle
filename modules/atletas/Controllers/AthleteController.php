@@ -588,6 +588,7 @@ final class AthleteController
         $userLinkEnabled = $this->userLinkEnabled;
         foreach ($athletes as &$athlete) {
             $athlete['edit_token'] = $this->createEditToken((int) $athlete['id']);
+            $athlete['user_link_token'] = !empty($athlete['usuario_id']) ? '' : $this->createUserLinkToken((int) $athlete['id']);
         }
         unset($athlete);
         $notice = $_SESSION['athlete_notice'] ?? null;
@@ -657,6 +658,19 @@ final class AthleteController
         $tokens[$token] = ['id' => $athleteId, 'expires' => $now + 3600];
         while (count($tokens) > 500) array_shift($tokens);
         $_SESSION['athlete_edit_tokens'] = $tokens;
+        return $token;
+    }
+
+    private function createUserLinkToken(int $athleteId): string
+    {
+        $now = time();
+        $tokens = $_SESSION['athlete_user_link_tokens'] ?? [];
+        if (!is_array($tokens)) $tokens = [];
+        $tokens = array_filter($tokens, static fn(mixed $entry): bool => is_array($entry) && (int) ($entry['expires'] ?? 0) > $now);
+        $token = bin2hex(random_bytes(16));
+        $tokens[$token] = ['athlete_id' => $athleteId, 'expires' => $now + 7200];
+        while (count($tokens) > 500) array_shift($tokens);
+        $_SESSION['athlete_user_link_tokens'] = $tokens;
         return $token;
     }
 

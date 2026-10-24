@@ -37,6 +37,7 @@ final class Modules
             'modules/usuarios/Views/index.php',
             'modules/usuarios/Views/form.php',
             'modules/usuarios/Views/unavailable.php',
+            'modules/usuarios/Views/error.php',
             'modules/usuarios/Assets/usuarios.css',
             'modules/usuarios/Database/migrations/001_usuarios_cpf_vinculo_atletas.sql',
         ],

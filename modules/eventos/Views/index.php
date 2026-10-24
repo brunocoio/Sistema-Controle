@@ -37,5 +37,6 @@ $adminActiveModule = 'eventos';
 <dialog class="app-confirm-dialog" data-app-confirm-dialog aria-labelledby="app-confirm-title"><div class="app-confirm-content"><span class="app-confirm-icon" aria-hidden="true">!</span><div><h2 id="app-confirm-title">Confirmar exclusão</h2><p data-app-confirm-message>Deseja excluir este evento?</p></div></div><div class="app-confirm-actions"><button class="app-button app-button-subtle" type="button" data-app-confirm-cancel>Cancelar</button><button class="app-button app-button-danger" type="button" data-app-confirm-accept>Excluir</button></div></dialog>
 <script src="<?= $escape(\App\Core\View::assetUrl('../assets/js/app.js', $config)) ?>" defer></script>
 <script src="<?= $escape(\App\Core\View::assetUrl('../modules/eventos/Assets/eventos.js', $config)) ?>" defer></script>
+<?php require dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'Core' . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'Layout' . DIRECTORY_SEPARATOR . 'footer.php'; ?>
 </body>
 </html>

@@ -55,16 +55,21 @@ final class UserController
                 }
                 $id = $profileOnly ? (int) $loggedUser['id'] : $this->optionalId($_POST['id'] ?? '');
                 $currentUser = $id > 0 ? $model->find($id) : null;
-                if ($profileOnly && $currentUser === null) { http_response_code(404); exit('Usuário não encontrado.'); }
+                if ($profileOnly && $currentUser === null) { $this->renderError($config, 404, 'Usuário não encontrado.'); return; }
                 $athleteId = $profileOnly
                     ? (($currentUser['atleta_id'] ?? null) === null ? null : (int) $currentUser['atleta_id'])
                     : ($id > 0
                         ? (($currentUser['atleta_id'] ?? null) === null ? null : (int) $currentUser['atleta_id'])
-                        : (($this->optionalId($_GET['atleta_id'] ?? '') > 0) ? $this->optionalId($_GET['atleta_id']) : null));
+                        : $this->requestedAthleteId());
+                $linkToken = is_string($_GET['link_token'] ?? null) ? $_GET['link_token'] : '';
+                if (!$profileOnly && $id === 0 && isset($_GET['link_token']) && $athleteId === null) {
+                    $this->renderError($config, 404, 'O vínculo solicitado expirou. Volte à lista de atletas e tente novamente.');
+                    return;
+                }
                 $validationInput = $_POST;
                 if (!$profileOnly && $athleteId !== null) {
                     $linkedAthlete = $model->athlete($athleteId);
-                    if (!is_array($linkedAthlete)) { http_response_code(404); exit('Atleta não encontrado.'); }
+                    if (!is_array($linkedAthlete)) { $this->renderError($config, 404, 'Atleta não encontrado.'); return; }
                     $validationInput['email'] = (string) ($linkedAthlete['email'] ?? '');
                     $validationInput['cpf'] = (string) ($linkedAthlete['cpf'] ?? '');
                 }
@@ -110,7 +115,7 @@ final class UserController
             }
             if ($profileOnly) {
                 $user = $model->find((int) $loggedUser['id']);
-                if ($user === null) { http_response_code(404); exit('Usuário não encontrado.'); }
+                if ($user === null) { $this->renderError($config, 404, 'Usuário não encontrado.'); return; }
                 $id = (int) $loggedUser['id'];
                 $athlete = $user['atleta_id'] === null ? null : $model->athlete((int) $user['atleta_id']);
                 $values = $user;
@@ -121,15 +126,25 @@ final class UserController
             }
             $idValue = $_GET['id'] ?? null;
             $athleteValue = $_GET['atleta_id'] ?? null;
+            $linkToken = is_string($_GET['link_token'] ?? null) ? $_GET['link_token'] : '';
+            $pathAthleteId = $this->athleteIdFromPath();
+            if ($pathAthleteId !== null) { $idValue = null; $athleteValue = (string) $pathAthleteId; }
+            if ($linkToken !== '') {
+                $tokenAthleteId = $this->resolveLinkToken($linkToken);
+                if ($tokenAthleteId === null) { $this->renderError($config, 404, 'O vínculo solicitado expirou. Volte à lista de atletas e tente novamente.'); return; }
+                $athleteValue = (string) $tokenAthleteId;
+                $idValue = null;
+            }
             if ($idValue !== null || $athleteValue !== null || ($_GET['novo'] ?? null) === '1') {
                 $id = $idValue === null ? 0 : $this->id($idValue);
                 $athleteId = $athleteValue === null ? 0 : $this->id($athleteValue);
                 $user = $id > 0 ? $model->find($id) : null;
-                if ($id > 0 && $user === null) { http_response_code(404); exit('Usuário não encontrado.'); }
+                if ($id > 0 && $user === null) { $this->renderError($config, 404, 'Usuário não encontrado.'); return; }
                 $athlete = $athleteId > 0 ? $model->athlete($athleteId) : null;
-                if ($athleteId > 0 && $athlete === null) { http_response_code(404); exit('Atleta não encontrado.'); }
+                if ($athleteId > 0 && $athlete === null) { $this->renderError($config, 404, 'Atleta não encontrado.'); return; }
                 if (is_array($athlete) && $athlete['usuario_id'] !== null && ($user === null || (int) $athlete['usuario_id'] !== $id)) {
-                    http_response_code(409); exit('Este atleta já possui um usuário vinculado.');
+                    $this->renderError($config, 409, 'Este atleta já possui um usuário vinculado.');
+                    return;
                 }
                 $values = is_array($user) ? $user : [
                     'nome' => is_array($athlete) ? (string) $athlete['nome'] : '',
@@ -178,6 +193,43 @@ final class UserController
             'ativo' => $profileOnly ? (bool) ($current['ativo'] ?? true) : (($input['ativo'] ?? '') === '1'),
             '_errors' => $errors,
         ];
+    }
+
+    private function requestedAthleteId(): ?int
+    {
+        if (is_string($_GET['link_token'] ?? null)) {
+            return $this->resolveLinkToken($_GET['link_token']);
+        }
+        $pathId = $this->athleteIdFromPath();
+        if ($pathId !== null) return $pathId;
+        $queryId = $this->optionalId($_GET['atleta_id'] ?? '');
+        return $queryId > 0 ? $queryId : null;
+    }
+
+    private function athleteIdFromPath(): ?int
+    {
+        $path = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+        if (!is_string($path) || preg_match('#/admin/usuario-atleta-([1-9]\d*)-novo/?\z#', $path, $matches) !== 1) return null;
+        return (int) $matches[1];
+    }
+
+    private function resolveLinkToken(mixed $token): ?int
+    {
+        if (!is_string($token) || preg_match('/\A[a-f0-9]{32}\z/', $token) !== 1) return null;
+        $entry = $_SESSION['athlete_user_link_tokens'][$token] ?? null;
+        if (!is_array($entry) || !is_int($entry['athlete_id'] ?? null)
+            || !is_int($entry['expires'] ?? null) || $entry['expires'] < time()) return null;
+        return $entry['athlete_id'];
+    }
+
+    private function renderError(array $config, int $status, string $message): void
+    {
+        http_response_code($status);
+        $escape = [View::class, 'escape'];
+        $csrfToken = Csrf::token();
+        $adminActiveModule = 'usuarios';
+        $appName = (string) ($config['app']['name'] ?? 'Sistema FLAG');
+        require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'error.php';
     }
 
     private function validCpf(string $cpf): bool

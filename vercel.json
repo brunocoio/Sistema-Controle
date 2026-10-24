@@ -30,8 +30,12 @@
       "destination": "/admin/usuarios.php?id=:id"
     },
     {
-      "source": "/admin/usuario-atleta-:id-novo",
-      "destination": "/admin/usuarios.php?atleta_id=:id"
+      "source": "^/admin/usuario-atleta-([1-9][0-9]*)-novo$",
+      "destination": "/admin/usuarios.php?atleta_id=$1"
+    },
+    {
+      "source": "/admin/usuario-atleta-:token",
+      "destination": "/admin/usuarios.php?link_token=:token"
     },
     {
       "source": "/admin/atletas",

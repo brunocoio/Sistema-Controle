@@ -67,5 +67,6 @@ $adminActiveModule = 'atletas';
     </div>
     <div class="category-delete-dialog-actions"><button type="button" class="app-button app-button-subtle" data-delete-cancel>Cancelar</button><button type="button" class="app-button app-button-danger" data-delete-confirm>Excluir</button></div>
 </dialog>
+<?php require dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'Core' . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'Layout' . DIRECTORY_SEPARATOR . 'footer.php'; ?>
 </body>
 </html>

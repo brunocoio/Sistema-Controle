@@ -11,7 +11,8 @@ $linkedAthleteId = is_array($user ?? null) && ($user['atleta_id'] ?? null) !== n
 $athleteId = $athlete === null ? $linkedAthleteId : (int) $athlete['id'];
 $isIdentityLocked = !$isSelfProfile && $athleteId > 0;
 $getValue = static fn(string $key, mixed $default = ''): string => (string) ($values[$key] ?? $default);
-$formAction = $isSelfProfile ? 'meu-perfil' : ($isEdit ? 'usuario-' . (int) $values['id'] . '-editar' : ($athleteId > 0 ? 'usuario-atleta-' . $athleteId . '-novo' : 'usuarios-novo'));
+$linkToken = is_string($linkToken ?? null) ? $linkToken : '';
+$formAction = $isSelfProfile ? 'meu-perfil' : ($isEdit ? 'usuario-' . (int) $values['id'] . '-editar' : ($athleteId > 0 ? ($linkToken !== '' ? 'usuario-atleta-' . $linkToken : 'usuario-atleta-' . $athleteId . '-novo') : 'usuarios-novo'));
 ?>
 <!doctype html>
 <html lang="pt-BR"><head>
@@ -46,4 +47,4 @@ $formAction = $isSelfProfile ? 'meu-perfil' : ($isEdit ? 'usuario-' . (int) $val
 <?php else: ?><p class="users-linked-athlete">Sem vínculo com atleta. Para vincular esta conta, use o botão “Usuário” no cadastro do atleta.</p><?php endif; ?>
 </fieldset>
 <div class="users-form-actions"><button class="app-button" type="submit">Salvar <?= $isSelfProfile ? 'perfil' : 'usuário' ?></button><a class="app-button app-button-outline" href="<?= $isSelfProfile ? 'index' : 'usuarios' ?>">Cancelar</a></div>
-</form></main><script src="<?= $escape(\App\Core\View::assetUrl('../assets/js/app.js', $config)) ?>" defer></script></body></html>
+</form></main><script src="<?= $escape(\App\Core\View::assetUrl('../assets/js/app.js', $config)) ?>" defer></script><?php require dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'Core' . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'Layout' . DIRECTORY_SEPARATOR . 'footer.php'; ?></body></html>

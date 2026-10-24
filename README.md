@@ -299,7 +299,7 @@ Para controle de cache rigoroso e compatibilidade com diretivas de PageSpeed, os
 return [
     'app' => [
         'name' => 'Sistema FLAG',
-        'version' => '0.1.0',
+        'version' => '1.3.4',
         'environment' => 'development',
         'debug' => false,
     ],
@@ -318,6 +318,10 @@ return [
 ```
 
 O helper `App\Core\View::assetUrl()` identifica automaticamente a extensão do recurso (`.css`, `.js`, imagens) e aplica a versão correspondente na URL para cache-busting preciso sem exigir limpeza manual do navegador.
+
+### 9.2 Versão do sistema no rodapé
+
+O rodapé público e administrativo exibe a versão `vMAJOR.MÓDULOS.REVISÃO`. A revisão final deve ser incrementada em toda publicação (sem reutilizar números); quando a Vercel disponibilizar `VERCEL_GIT_COMMIT_SHA`, o rodapé também mostra os sete primeiros caracteres do commit para identificar exatamente a implantação.
 
 ---
 

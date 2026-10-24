@@ -131,4 +131,10 @@
 .auth-back-link:hover{border-color:var(--blue);color:var(--blue);background:#fff;transform:translateX(-2px)}
 .auth-back-link:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .auth-field-feedback{min-height:18px;color:var(--red);font-size:13px;font-weight:600}
+.admin-page{display:flex;min-height:100vh;flex-direction:column}
+.admin-page>.admin-content{flex:1 0 auto}
+.admin-page>.site-footer{flex:none}
+.auth-page{grid-template-rows:1fr auto}
+.auth-page>.auth-card{align-self:center}
+.auth-page>.site-footer{width:100%;align-self:stretch}
 
