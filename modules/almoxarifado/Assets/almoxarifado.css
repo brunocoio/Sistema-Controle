@@ -1,4 +1,4 @@
-.inventory-content{max-width:1120px}
+.inventory-content{max-width:1040px}
 .inventory-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:13px;margin:0 0 18px}
 .inventory-summary article{display:grid;gap:6px;padding:18px 20px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 8px 24px rgba(29,41,80,.05)}
 .inventory-summary span{color:var(--muted);font-size:12px;font-weight:750}
@@ -68,5 +68,5 @@
 .inventory-personal-details h2{margin:0 0 5px;color:var(--ink);font-size:17px}
 .inventory-personal-details h2 span{color:var(--muted);font-size:13px;font-weight:500}
 .inventory-personal-details p:not(.inventory-kicker){margin:3px 0;color:var(--muted);font-size:12px;line-height:1.5}
-@media(max-width:760px){.inventory-content{width:min(100% - 36px,600px);margin:34px auto}.inventory-panel{padding:17px}.inventory-return-line{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.inventory-content{width:min(100% - 36px,540px);margin:34px auto}.inventory-panel{padding:17px}.inventory-return-line{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.inventory-checklist-inputs{grid-template-columns:1fr}.inventory-personal-card{grid-template-columns:38px minmax(0,1fr);gap:11px;padding:14px}.inventory-personal-icon{width:36px;height:36px}.inventory-personal-card>.inventory-status{grid-column:2}.inventory-category-chip{align-items:flex-start}.inventory-return-line{grid-template-columns:1fr 1fr}}

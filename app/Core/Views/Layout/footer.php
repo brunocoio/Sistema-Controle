@@ -5,7 +5,7 @@ $footerAppName = isset($appName) && is_string($appName) && $appName !== ''
 $footerSystemVersion = 1;
 $footerModuleCount = 1 + count(\App\Core\Modules::catalog()); // Autenticação + módulos do catálogo.
 // Incrementar uma unidade a cada nova entrega no Git; novos módulos são contados pelo catálogo acima.
-$footerDelivery = 6;
+$footerDelivery = 7;
 $footerVersion = $footerSystemVersion . '.' . $footerModuleCount . '.' . $footerDelivery;
 ?>
 <footer class="site-footer">
