@@ -15,17 +15,23 @@ use Throwable;
 
 final class UserController
 {
-    public function handle(array $config): void
+    public function handle(array $config, bool $profileOnly = false): void
     {
         header('Cache-Control: no-store, private');
         try {
             Session::start();
-            Auth::requireRole('admin');
+            $loggedUser = $profileOnly ? Auth::requireRole('admin', 'staff', 'atleta') : Auth::requireRole('admin');
+            $isSystemRoot = ($loggedUser['role'] ?? '') === 'admin';
             $model = new UserModel();
             $escape = [View::class, 'escape'];
             $csrfToken = Csrf::token();
             if (!$model->schemaAvailable()) {
-                require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'unavailable.php';
+                if ($isSystemRoot) {
+                    require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'unavailable.php';
+                } else {
+                    http_response_code(503);
+                    exit('Perfil temporariamente indisponível.');
+                }
                 return;
             }
             $error = null;
@@ -35,8 +41,10 @@ final class UserController
                     exit('A sessão expirou. Atualize a página e tente novamente.');
                 }
                 $action = is_string($_POST['action'] ?? null) ? $_POST['action'] : '';
-                if ($action === 'toggle') {
-                    $model->toggle($this->id($_POST['id'] ?? null));
+                if ($action === 'toggle' && !$profileOnly) {
+                    $targetId = $this->id($_POST['id'] ?? null);
+                    if ($targetId === (int) $loggedUser['id']) { http_response_code(403); exit('Use Meu perfil para alterar seus próprios dados.'); }
+                    $model->toggle($targetId);
                     $_SESSION['user_admin_notice'] = 'Status do usuário atualizado.';
                     header('Location: usuarios', true, 303);
                     exit;
@@ -45,13 +53,25 @@ final class UserController
                     http_response_code(400);
                     exit('Ação inválida.');
                 }
-                $data = $this->validate($_POST);
-                $id = $data['id'];
-                $athleteId = $data['atleta_id'] > 0 ? $data['atleta_id'] : null;
+                $id = $profileOnly ? (int) $loggedUser['id'] : $this->optionalId($_POST['id'] ?? '');
+                $currentUser = $id > 0 ? $model->find($id) : null;
+                if ($profileOnly && $currentUser === null) { http_response_code(404); exit('Usuário não encontrado.'); }
+                $athleteId = $profileOnly
+                    ? (($currentUser['atleta_id'] ?? null) === null ? null : (int) $currentUser['atleta_id'])
+                    : ($id > 0
+                        ? (($currentUser['atleta_id'] ?? null) === null ? null : (int) $currentUser['atleta_id'])
+                        : (($this->optionalId($_GET['atleta_id'] ?? '') > 0) ? $this->optionalId($_GET['atleta_id']) : null));
+                $validationInput = $_POST;
+                if (!$profileOnly && $athleteId !== null) {
+                    $linkedAthlete = $model->athlete($athleteId);
+                    if (!is_array($linkedAthlete)) { http_response_code(404); exit('Atleta não encontrado.'); }
+                    $validationInput['email'] = (string) ($linkedAthlete['email'] ?? '');
+                    $validationInput['cpf'] = (string) ($linkedAthlete['cpf'] ?? '');
+                }
+                $data = $this->validate($validationInput, $currentUser, $profileOnly);
                 $passwordValue = $_POST['password'] ?? '';
-                $password = is_string($passwordValue) ? $passwordValue : '';
+                $password = $profileOnly && is_string($passwordValue) ? $passwordValue : '';
                 $errors = $data['_errors'];
-                if ($id === 0 && strlen($password) < 12) $errors[] = 'A senha inicial deve ter pelo menos 12 caracteres.';
                 if ($password !== '' && strlen($password) < 12) $errors[] = 'A senha deve ter pelo menos 12 caracteres.';
                 if ($password !== '' && strlen($password) > 4096) $errors[] = 'A senha ultrapassou o limite permitido.';
                 unset($data['_errors'], $data['id'], $data['atleta_id']);
@@ -59,19 +79,19 @@ final class UserController
                     $error = implode(' ', $errors);
                     $values = $data + ['id' => $id, 'atleta_id' => $athleteId];
                     $user = $id > 0 ? $model->find($id) : null;
-                    $athletes = $model->availableAthletes($id > 0 ? $id : null);
+                    $athlete = $athleteId !== null ? $model->athlete($athleteId) : null;
                     require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'form.php';
                     return;
                 }
                 try {
                     if ($id > 0) {
                         $model->update($id, $data, $password === '' ? null : $password, $athleteId);
-                        $_SESSION['user_admin_notice'] = 'Usuário atualizado.';
+                        $_SESSION['user_admin_notice'] = $profileOnly ? 'Seu perfil foi atualizado.' : 'Usuário atualizado.';
                     } else {
-                        $model->create($data, $password, $athleteId);
+                        $model->create($data, $athleteId);
                         $_SESSION['user_admin_notice'] = 'Usuário cadastrado.';
                     }
-                    header('Location: usuarios', true, 303);
+                    header('Location: ' . ($profileOnly ? 'meu-perfil' : 'usuarios'), true, 303);
                     exit;
                 } catch (PDOException $exception) {
                     $state = (string) ($exception->errorInfo[0] ?? '');
@@ -84,7 +104,18 @@ final class UserController
                 }
                 $values = $data + ['id' => $id, 'atleta_id' => $athleteId];
                 $user = $id > 0 ? $model->find($id) : null;
-                $athletes = $model->availableAthletes($id > 0 ? $id : null);
+                $athlete = $athleteId !== null ? $model->athlete($athleteId) : null;
+                require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'form.php';
+                return;
+            }
+            if ($profileOnly) {
+                $user = $model->find((int) $loggedUser['id']);
+                if ($user === null) { http_response_code(404); exit('Usuário não encontrado.'); }
+                $id = (int) $loggedUser['id'];
+                $athlete = $user['atleta_id'] === null ? null : $model->athlete((int) $user['atleta_id']);
+                $values = $user;
+                $notice = $_SESSION['user_admin_notice'] ?? null;
+                unset($_SESSION['user_admin_notice']);
                 require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'form.php';
                 return;
             }
@@ -104,11 +135,10 @@ final class UserController
                     'nome' => is_array($athlete) ? (string) $athlete['nome'] : '',
                     'email' => is_array($athlete) ? (string) $athlete['email'] : '',
                     'cpf' => is_array($athlete) ? (string) $athlete['cpf'] : '',
-                    'perfil' => 'staff', 'ativo' => true,
+                    'funcoes' => [$athleteId > 0 ? 'atleta' : 'staff'], 'perfil' => $athleteId > 0 ? 'atleta' : 'staff', 'ativo' => true,
                     'atleta_id' => $athleteId > 0 ? $athleteId : null,
                 ];
                 $values += ['id' => $id, 'atleta_id' => $athleteId > 0 ? $athleteId : null];
-                $athletes = $model->availableAthletes($id > 0 ? $id : null);
                 require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'form.php';
                 return;
             }
@@ -123,21 +153,31 @@ final class UserController
         }
     }
 
-    private function validate(array $input): array
+    private function validate(array $input, ?array $current = null, bool $profileOnly = false): array
     {
         $errors = [];
-        $id = $this->optionalId($input['id'] ?? '');
-        $athleteId = $this->optionalId($input['atleta_id'] ?? '');
+        $id = $profileOnly ? (int) ($current['id'] ?? 0) : $this->optionalId($input['id'] ?? '');
+        $athleteId = $profileOnly ? (int) ($current['atleta_id'] ?? 0) : $this->optionalId($_GET['atleta_id'] ?? '');
         $name = is_string($input['nome'] ?? null) ? trim($input['nome']) : '';
         $email = is_string($input['email'] ?? null) ? strtolower(trim($input['email'])) : '';
         $cpfRaw = is_string($input['cpf'] ?? null) ? $input['cpf'] : '';
         $cpf = preg_replace('/\D+/', '', $cpfRaw) ?? '';
-        $role = is_string($input['perfil'] ?? null) ? $input['perfil'] : '';
+        $rawFunctions = $profileOnly ? ($current['funcoes'] ?? []) : ($input['funcoes'] ?? []);
+        $functions = is_array($rawFunctions) ? array_values(array_unique(array_filter($rawFunctions, static fn(mixed $function): bool => is_string($function) && in_array($function, ['staff', 'atleta'], true)))) : [];
+        if ($functions === [] && in_array($current['perfil'] ?? null, ['staff', 'atleta'], true)) $functions = [(string) $current['perfil']];
         if ($name === '' || mb_strlen($name, 'UTF-8') > 120 || preg_match('/[\x00-\x1F\x7F]/u', $name) === 1) $errors[] = 'Informe um nome válido (até 120 caracteres).';
         if (filter_var($email, FILTER_VALIDATE_EMAIL) === false || strlen($email) > 254) $errors[] = 'Informe um e-mail válido.';
         if (!$this->validCpf($cpf)) $errors[] = 'Informe um CPF válido.';
-        if (!in_array($role, ['admin', 'staff', 'atleta'], true)) $errors[] = 'Selecione um perfil válido.';
-        return ['id' => $id, 'atleta_id' => $athleteId, 'nome' => $name, 'email' => $email, 'cpf' => $cpf, 'perfil' => $role, 'ativo' => ($input['ativo'] ?? '') === '1', '_errors' => $errors];
+        if ($functions === [] && !$profileOnly && ($current['perfil'] ?? null) !== 'admin') $errors[] = 'Selecione pelo menos uma função: Staff e/ou Atleta.';
+        $legacyRole = $current !== null && ($current['perfil'] ?? '') === 'admin'
+            ? 'admin'
+            : (in_array('staff', $functions, true) ? 'staff' : 'atleta');
+        return [
+            'id' => $id, 'atleta_id' => $athleteId, 'nome' => $name, 'email' => $email,
+            'cpf' => $cpf, 'funcoes' => $functions, 'perfil' => $legacyRole,
+            'ativo' => $profileOnly ? (bool) ($current['ativo'] ?? true) : (($input['ativo'] ?? '') === '1'),
+            '_errors' => $errors,
+        ];
     }
 
     private function validCpf(string $cpf): bool

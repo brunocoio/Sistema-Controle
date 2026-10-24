@@ -6,6 +6,7 @@ namespace Modules\Autenticacao\Controllers;
 
 use App\Core\Auth;
 use App\Core\Csrf;
+use App\Core\Database;
 use App\Core\Session;
 use App\Core\View;
 use Throwable;
@@ -17,7 +18,20 @@ final class AdminController
         try {
             Session::start();
             header('Cache-Control: no-store, private');
-            $user = Auth::requireRole('admin');
+            $user = Auth::requireRole('admin', 'staff', 'atleta');
+            if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+                if (!Csrf::verify($_POST['_csrf'] ?? null) || ($_POST['action'] ?? null) !== 'dismiss-first-access') {
+                    http_response_code(400);
+                    exit('Solicitação inválida. Atualize a página e tente novamente.');
+                }
+                $statement = Database::connection()->prepare(
+                    'UPDATE usuarios SET senha_inicial_pendente = FALSE WHERE id = :id'
+                );
+                $statement->execute(['id' => (int) $user['id']]);
+                $_SESSION['user']['first_access'] = false;
+                header('Location: index', true, 303);
+                exit;
+            }
             $csrfToken = Csrf::token();
         } catch (Throwable $exception) {
             error_log('Sessão administrativa indisponível: ' . get_class($exception));

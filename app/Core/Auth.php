@@ -36,10 +36,11 @@ final class Auth
         }
 
         $statement = $db->prepare(
-            'SELECT id, nome, email, password_hash, perfil
-             FROM usuarios
-             WHERE email_normalizado = :email AND ativo = TRUE
-             LIMIT 1'
+            "SELECT u.id, u.nome, u.email, u.password_hash, u.perfil,
+                    COALESCE((to_jsonb(u)->>'senha_inicial_pendente')::boolean, FALSE) AS senha_inicial_pendente
+             FROM usuarios u
+             WHERE u.email_normalizado = :email AND u.ativo = TRUE
+             LIMIT 1"
         );
         $statement->execute(['email' => $email]);
         $user = $statement->fetch(PDO::FETCH_ASSOC);
@@ -64,6 +65,7 @@ final class Auth
             'name' => (string) $user['nome'],
             'email' => (string) $user['email'],
             'role' => (string) $user['perfil'],
+            'first_access' => in_array($user['senha_inicial_pendente'] ?? false, [true, 1, '1', 't', 'true'], true),
         ];
         Csrf::rotate();
         return true;
@@ -77,7 +79,9 @@ final class Auth
             return null;
         }
         $statement = Database::connection()->prepare(
-            'SELECT id, nome, email, perfil FROM usuarios WHERE id = :id AND ativo = TRUE LIMIT 1'
+            "SELECT u.id, u.nome, u.email, u.perfil,
+                    COALESCE((to_jsonb(u)->>'senha_inicial_pendente')::boolean, FALSE) AS senha_inicial_pendente
+             FROM usuarios u WHERE u.id = :id AND u.ativo = TRUE LIMIT 1"
         );
         $statement->execute(['id' => (int) $stored['id']]);
         $user = $statement->fetch(PDO::FETCH_ASSOC);
@@ -90,6 +94,7 @@ final class Auth
             'name' => (string) $user['nome'],
             'email' => (string) $user['email'],
             'role' => (string) $user['perfil'],
+            'first_access' => in_array($user['senha_inicial_pendente'] ?? false, [true, 1, '1', 't', 'true'], true),
         ];
         return $_SESSION['user'];
     }

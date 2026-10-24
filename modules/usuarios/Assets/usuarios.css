@@ -13,9 +13,16 @@
 .users-role{background:#eef1f5;color:#4d5869}
 .users-status.is-active{background:#e4f5eb;color:#207044}
 .users-status.is-inactive{background:#fce8e8;color:#9f3030}
+.users-current-account{color:var(--muted);font-size:12px;font-weight:700}
 .users-card form{margin:0}
 .users-form{display:grid;gap:18px;max-width:860px}
 .users-form fieldset{display:grid;gap:14px}
+.users-functions{margin:0;padding:14px;border:1px solid var(--line);border-radius:7px;background:#fff}
+.users-function-options{display:flex;flex-wrap:wrap;gap:10px}
+.users-function-options label{display:flex;min-width:132px;align-items:center;gap:9px;padding:11px 13px;border:1px solid #d9e0e9;border-radius:7px;background:#f8fafc;color:var(--ink);font-weight:750}
+.users-function-options input{width:18px;height:18px}
+.users-profile-functions,.users-initial-password{align-self:center;padding:12px 14px;border-radius:7px;background:#eef5fc;color:#394a61;font-size:13px;line-height:1.6}
+.users-linked-athlete p{margin:5px 0}
 .users-linked-athlete{padding:13px 15px;border-radius:7px;background:#eef5fc;color:#394a61;line-height:1.6}
 .users-form-actions{display:flex;flex-wrap:wrap;gap:10px}
 @media(max-width:900px){.users-card{grid-template-columns:minmax(0,1fr) auto auto}.users-card-main{grid-column:1/-1}.users-role{grid-column:1}.users-card form{justify-self:start}}

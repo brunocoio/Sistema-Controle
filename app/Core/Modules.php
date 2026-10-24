@@ -31,6 +31,7 @@ final class Modules
         ],
         'usuarios' => [
             'admin/usuarios.php',
+            'admin/meu-perfil.php',
             'modules/usuarios/Controllers/UserController.php',
             'modules/usuarios/Models/UserModel.php',
             'modules/usuarios/Views/index.php',

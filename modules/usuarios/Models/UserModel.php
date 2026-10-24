@@ -15,6 +15,8 @@ final class UserModel
         try {
             $statement = Database::connection()->query(
                 "SELECT (SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() AND table_name='usuarios' AND column_name='cpf') = 1
+                    AND (SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() AND table_name='usuarios' AND column_name='funcoes') = 1
+                    AND (SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() AND table_name='usuarios' AND column_name='senha_inicial_pendente') = 1
                     AND (SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() AND table_name='atletas' AND column_name='usuario_id') = 1"
             );
             return in_array($statement->fetchColumn(), [true, 1, '1', 't', 'true'], true);
@@ -25,24 +27,29 @@ final class UserModel
 
     public function all(): array
     {
-        return Database::connection()->query(
-            'SELECT u.id, u.nome, u.email, u.cpf, u.perfil, u.ativo, u.criado_em,
+        $users = Database::connection()->query(
+            'SELECT u.id, u.nome, u.email, u.cpf, u.perfil, u.funcoes, u.ativo, u.criado_em,
                     a.id AS atleta_id, a.nome AS atleta_nome, a.ativo AS atleta_ativo
              FROM usuarios u LEFT JOIN atletas a ON a.usuario_id = u.id
              ORDER BY lower(u.nome), u.id'
         )->fetchAll();
+        foreach ($users as &$user) $user['funcoes'] = $this->decodeFunctions($user['funcoes'] ?? null);
+        unset($user);
+        return $users;
     }
 
     public function find(int $id): ?array
     {
         $statement = Database::connection()->prepare(
-            'SELECT u.id, u.nome, u.email, u.cpf, u.perfil, u.ativo,
+            'SELECT u.id, u.nome, u.email, u.cpf, u.perfil, u.funcoes, u.ativo,
                     a.id AS atleta_id, a.nome AS atleta_nome
              FROM usuarios u LEFT JOIN atletas a ON a.usuario_id = u.id WHERE u.id = :id'
         );
         $statement->execute(['id' => $id]);
         $row = $statement->fetch();
-        return is_array($row) ? $row : null;
+        if (!is_array($row)) return null;
+        $row['funcoes'] = $this->decodeFunctions($row['funcoes'] ?? null);
+        return $row;
     }
 
     public function availableAthletes(?int $userId = null): array
@@ -64,18 +71,20 @@ final class UserModel
         return is_array($row) ? $row : null;
     }
 
-    public function create(array $data, string $password, ?int $athleteId): int
+    public function create(array $data, ?int $athleteId): int
     {
         $db = Database::connection();
         $db->beginTransaction();
         try {
             $statement = $db->prepare(
-                'INSERT INTO usuarios (nome, email, cpf, password_hash, perfil, ativo)
-                 VALUES (:name, :email, :cpf, :password, :role, :active) RETURNING id'
+                'INSERT INTO usuarios (nome, email, cpf, password_hash, perfil, funcoes, senha_inicial_pendente, ativo)
+                 VALUES (:name, :email, :cpf, :password, :role, CAST(:functions AS JSONB), TRUE, :active) RETURNING id'
             );
+            $functions = array_values(array_intersect(['staff', 'atleta'], $data['funcoes']));
             $statement->execute([
                 'name' => $data['nome'], 'email' => $data['email'], 'cpf' => $data['cpf'],
-                'password' => password_hash($password, PASSWORD_DEFAULT), 'role' => $data['perfil'],
+                'password' => password_hash($data['cpf'], PASSWORD_DEFAULT), 'role' => $this->legacyProfile($functions),
+                'functions' => json_encode($functions, JSON_THROW_ON_ERROR),
                 'active' => $data['ativo'] ? 'true' : 'false',
             ]);
             $id = (int) $statement->fetchColumn();
@@ -100,13 +109,16 @@ final class UserModel
                 throw new RuntimeException('O vínculo do atleta não pode ser removido. Desative a carreira do atleta para preservar o histórico.');
             }
             if ($currentAthleteId === null && $athleteId !== null) $this->linkAthlete($db, $id, $athleteId, $data);
-            $sql = 'UPDATE usuarios SET nome=:name, email=:email, cpf=:cpf, perfil=:role, ativo=:active, atualizado_em=CURRENT_TIMESTAMP';
-            if ($password !== null) $sql .= ', password_hash=:password';
+            $functions = array_values(array_intersect(['staff', 'atleta'], $data['funcoes'] ?? []));
+            $role = (string) $current['perfil'] === 'admin' ? 'admin' : $this->legacyProfile($functions);
+            $sql = 'UPDATE usuarios SET nome=:name, email=:email, cpf=:cpf, perfil=:role, funcoes=CAST(:functions AS JSONB), ativo=:active, atualizado_em=CURRENT_TIMESTAMP';
+            if ($password !== null) $sql .= ', password_hash=:password, senha_inicial_pendente=FALSE';
             $sql .= ' WHERE id=:id';
             $statement = $db->prepare($sql);
             $params = [
                 'id' => $id, 'name' => $data['nome'], 'email' => $data['email'], 'cpf' => $data['cpf'],
-                'role' => $data['perfil'], 'active' => $data['ativo'] ? 'true' : 'false',
+                'role' => $role, 'functions' => json_encode($functions, JSON_THROW_ON_ERROR),
+                'active' => $data['ativo'] ? 'true' : 'false',
             ];
             if ($password !== null) $params['password'] = password_hash($password, PASSWORD_DEFAULT);
             $statement->execute($params);
@@ -123,11 +135,37 @@ final class UserModel
 
     public function toggle(int $id): void
     {
-        $statement = Database::connection()->prepare(
-            'UPDATE usuarios SET ativo = NOT ativo, atualizado_em = CURRENT_TIMESTAMP WHERE id = :id'
-        );
-        $statement->execute(['id' => $id]);
-        if ($statement->rowCount() !== 1) throw new RuntimeException('Usuário não encontrado.');
+        $db = Database::connection();
+        $db->beginTransaction();
+        try {
+            $current = $db->prepare('SELECT id, perfil, ativo FROM usuarios WHERE id=:id FOR UPDATE');
+            $current->execute(['id' => $id]);
+            $user = $current->fetch();
+            if (!is_array($user)) throw new RuntimeException('Usuário não encontrado.');
+            if ($user['perfil'] === 'admin' && in_array($user['ativo'], [true, 1, '1', 't', 'true'], true)) {
+                $count = (int) $db->query("SELECT count(*) FROM usuarios WHERE perfil='admin' AND ativo=TRUE")->fetchColumn();
+                if ($count <= 1) throw new RuntimeException('Não é possível desativar o último administrador do sistema.');
+            }
+            $statement = $db->prepare('UPDATE usuarios SET ativo = NOT ativo, atualizado_em = CURRENT_TIMESTAMP WHERE id = :id');
+            $statement->execute(['id' => $id]);
+            $db->commit();
+        } catch (\Throwable $exception) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $exception;
+        }
+    }
+
+    private function decodeFunctions(mixed $value): array
+    {
+        if (is_array($value)) return array_values(array_intersect(['staff', 'atleta'], $value));
+        if (!is_string($value)) return [];
+        $decoded = json_decode($value, true);
+        return is_array($decoded) ? array_values(array_intersect(['staff', 'atleta'], $decoded)) : [];
+    }
+
+    private function legacyProfile(array $functions): string
+    {
+        return in_array('staff', $functions, true) ? 'staff' : 'atleta';
     }
 
     private function linkAthlete(PDO $db, int $userId, int $athleteId, array $data): void
