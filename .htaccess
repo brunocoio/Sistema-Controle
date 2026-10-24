@@ -5,6 +5,7 @@ RewriteEngine On
 RewriteRule ^login$ login.php [QSA,L]
 RewriteRule ^logout$ logout.php [QSA,L]
 RewriteRule ^admin/index$ admin/index.php [QSA,L]
+RewriteRule ^admin/usuarios$ admin/usuarios.php [QSA,L]
 RewriteRule ^admin/atletas$ admin/atletas.php [QSA,L]
 RewriteRule ^admin/atletas-novo$ admin/atletas.php?route=new [QSA,L]
 RewriteRule ^admin/atletas-categorias$ admin/atletas.php?route=categories [QSA,L]

@@ -11,5 +11,4 @@ require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'modules' . DIRECTORY_SEPA
     . DIRECTORY_SEPARATOR . 'Models' . DIRECTORY_SEPARATOR . 'AthleteModel.php';
 require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'modules' . DIRECTORY_SEPARATOR . 'atletas'
     . DIRECTORY_SEPARATOR . 'Controllers' . DIRECTORY_SEPARATOR . 'AthleteController.php';
-
 (new \Modules\Atletas\Controllers\AthleteController())->handle($config);

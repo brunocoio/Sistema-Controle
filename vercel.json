@@ -14,6 +14,10 @@
       "destination": "/admin/index.php"
     },
     {
+      "source": "/admin/usuarios",
+      "destination": "/admin/usuarios.php"
+    },
+    {
       "source": "/admin/atletas",
       "destination": "/admin/atletas.php"
     },

@@ -27,7 +27,7 @@ if ($root === false || !is_dir($root)) {
 $options = array_slice($argv, 1);
 $knownOptions = [
     '--help', '--check-db', '--migrate-local-config', '--migrate-auth',
-    '--migrate-athletes', '--migrate-events', '--migrate-system',
+    '--migrate-athletes', '--migrate-events', '--migrate-users', '--migrate-system',
     '--migrate-all', '--create-admin',
 ];
 foreach ($options as $option) {
@@ -42,6 +42,7 @@ $migrationSets = [
     '--migrate-auth' => ['Autenticação', 'modules/autenticacao/Database/migrations'],
     '--migrate-athletes' => ['Atletas', 'modules/atletas/Database/migrations'],
     '--migrate-events' => ['Eventos', 'modules/eventos/Database/migrations'],
+    '--migrate-users' => ['Usuários', 'modules/usuarios/Database/migrations'],
 ];
 
 if (in_array('--help', $options, true)) {
@@ -52,6 +53,7 @@ if (in_array('--help', $options, true)) {
     echo "php setup/install.php --migrate-auth       Aplica o esquema de autenticação\n";
     echo "php setup/install.php --migrate-athletes   Aplica o esquema de atletas\n";
     echo "php setup/install.php --migrate-events     Aplica o esquema de eventos\n";
+    echo "php setup/install.php --migrate-users      Aplica o esquema de usuários\n";
     echo "php setup/install.php --migrate-all        Aplica todos os esquemas\n";
     echo "php setup/install.php --migrate-local-config Migra configuração local antiga\n";
     echo "php setup/install.php --create-admin      Cria o administrador inicial\n\n";

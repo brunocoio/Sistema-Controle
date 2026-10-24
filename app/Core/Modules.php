@@ -8,6 +8,7 @@ final class Modules
 {
     private const CATALOG = [
         'atletas' => ['title' => 'Atletas', 'description' => 'Cadastros e gestão esportiva da equipe.', 'admin_href' => 'atletas', 'icon' => 'athletes', 'toggleable' => true],
+        'usuarios' => ['title' => 'Usuários', 'description' => 'Contas de acesso e vínculos com atletas.', 'admin_href' => 'usuarios', 'icon' => 'users', 'toggleable' => true],
         'eventos' => ['title' => 'Eventos', 'description' => 'Jogos, treinos, amistosos e compromissos.', 'admin_href' => 'eventos', 'icon' => 'events', 'toggleable' => true],
     ];
 
@@ -27,6 +28,16 @@ final class Modules
             'modules/atletas/Views/categories.php',
             'modules/atletas/Assets/atletas.css',
             'modules/atletas/Assets/atletas.js',
+        ],
+        'usuarios' => [
+            'admin/usuarios.php',
+            'modules/usuarios/Controllers/UserController.php',
+            'modules/usuarios/Models/UserModel.php',
+            'modules/usuarios/Views/index.php',
+            'modules/usuarios/Views/form.php',
+            'modules/usuarios/Views/unavailable.php',
+            'modules/usuarios/Assets/usuarios.css',
+            'modules/usuarios/Database/migrations/001_usuarios_cpf_vinculo_atletas.sql',
         ],
         'eventos' => [
             'modules/eventos/Controllers/EventController.php',

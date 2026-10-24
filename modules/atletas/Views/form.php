@@ -25,6 +25,7 @@ $hasPhoto = in_array($values['tem_foto'] ?? false, [true, 1, '1', 't', 'true'], 
     <form class="athlete-form app-form" method="post" action="atletas" enctype="multipart/form-data">
         <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="save"><input type="hidden" name="id" value="<?= $escape($value('id', 0)) ?>">
         <fieldset><legend>Identificação</legend><div class="app-field-grid">
+            <?php if ($userLinkEnabled): ?><label class="athlete-user-link-field">Usuário vinculado *<select name="usuario_id" data-athlete-user-select required><option value="">Selecione um usuário</option><?php foreach ($userOptions as $account): ?><option value="<?= (int) $account['id'] ?>" data-email="<?= $escape($account['email']) ?>" data-cpf="<?= $escape($account['cpf']) ?>" <?= (int) $value('usuario_id', 0) === (int) $account['id'] ? 'selected' : '' ?>><?= $escape($account['nome']) ?> · <?= $escape($account['email']) ?><?= !in_array($account['ativo'], [true, 1, '1', 't', 'true'], true) ? ' · Inativo (vínculo atual)' : '' ?></option><?php endforeach; ?></select><small>Todo atleta precisa ter um usuário. CPF e e-mail devem ser iguais nos dois cadastros. <a href="usuarios?novo=1">Cadastrar usuário</a></small></label><?php else: ?><p class="athlete-user-link-field athlete-user-migration-notice">O vínculo com usuários ficará disponível assim que a migration do módulo Usuários for aplicada.</p><?php endif; ?>
             <label>Nome *<input name="nome" maxlength="120" required autocomplete="name" value="<?= $escape($value('nome')) ?>"></label>
             <label>Apelido<input name="apelido" maxlength="80" value="<?= $escape($value('apelido')) ?>"></label>
             <label>Gênero para elegibilidade nas categorias *<select id="athlete-gender" name="genero" required><option value="">Selecione</option><option value="masculino" <?= $value('genero') === 'masculino' ? 'selected' : '' ?>>Masculino</option><option value="feminino" <?= $value('genero') === 'feminino' ? 'selected' : '' ?>>Feminino</option></select><small>Define quais categorias podem ser vinculadas ao atleta.</small></label>
@@ -79,7 +80,7 @@ $hasPhoto = in_array($values['tem_foto'] ?? false, [true, 1, '1', 't', 'true'], 
 
         <fieldset><legend>Contato</legend><div class="app-field-grid">
             <label>Celular do atleta<input name="celular" type="tel" inputmode="tel" maxlength="30" autocomplete="tel" value="<?= $escape($value('celular')) ?>"></label>
-            <label>E-mail<input name="email" type="email" maxlength="254" autocomplete="email" value="<?= $escape($value('email')) ?>"></label>
+            <label>E-mail <?= $userLinkEnabled ? '*' : '' ?><input name="email" type="email" maxlength="254" autocomplete="email" <?= $userLinkEnabled ? 'required data-athlete-user-email' : '' ?> value="<?= $escape($value('email')) ?>"></label>
         </div></fieldset>
         <fieldset><legend>Contato de emergência</legend><div class="app-field-grid">
             <label>Nome<input name="contato_emergencia_nome" maxlength="120" value="<?= $escape($value('contato_emergencia_nome')) ?>"></label>
@@ -88,7 +89,7 @@ $hasPhoto = in_array($values['tem_foto'] ?? false, [true, 1, '1', 't', 'true'], 
         </div></fieldset>
         <fieldset><legend>Documentos e saúde <span class="athlete-private-label">Dados restritos</span></legend><p class="athlete-privacy">Acesso restrito a administradores. Informe somente o necessário para a gestão da equipe.</p><div class="app-field-grid">
             <label>RG<input name="rg" maxlength="30" value="<?= $escape($value('rg')) ?>"></label>
-            <label>CPF<input name="cpf" inputmode="numeric" maxlength="14" autocomplete="off" value="<?= $escape($value('cpf')) ?>"><small>O CPF não pode estar associado a outro cadastro.</small></label>
+            <label>CPF <?= $userLinkEnabled ? '*' : '' ?><input name="cpf" inputmode="numeric" maxlength="14" autocomplete="off" <?= $userLinkEnabled ? 'required data-athlete-user-cpf' : '' ?> value="<?= $escape($value('cpf')) ?>"><small><?= $userLinkEnabled ? 'O CPF deve ser igual ao usuário vinculado e não pode estar associado a outro cadastro.' : 'O CPF não pode estar associado a outro cadastro.' ?></small></label>
             <label>Tipo sanguíneo<select name="tipo_sanguineo"><option value="">Não informado</option><?php foreach (['A+','A-','B+','B-','AB+','AB-','O+','O-'] as $blood): ?><option value="<?= $blood ?>" <?= $value('tipo_sanguineo') === $blood ? 'selected' : '' ?>><?= $blood ?></option><?php endforeach; ?></select></label>
             <label class="athlete-wide">Alergias / observações de saúde<textarea name="alergias" maxlength="2000" rows="4"><?= $escape($value('alergias')) ?></textarea></label>
         </div></fieldset>

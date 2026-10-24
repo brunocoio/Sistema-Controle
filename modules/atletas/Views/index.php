@@ -39,6 +39,8 @@ $adminActiveModule = 'atletas';
         $birth = $row['data_nascimento'] ?? null;
         $age = is_string($birth) ? (new DateTimeImmutable($birth))->diff(new DateTimeImmutable('today'))->y : null;
         $isActive = in_array($row['ativo'] ?? false, [true, 1, '1', 't', 'true'], true);
+        $hasUser = isset($row['usuario_id']) && (int) $row['usuario_id'] > 0;
+        $userIsActive = in_array($row['usuario_ativo'] ?? false, [true, 1, '1', 't', 'true'], true);
     ?>
         <article class="athlete-card">
             <?php if (in_array($row['tem_foto'] ?? false, [true, 1, '1', 't', 'true'], true)): ?><img class="img-fluid athlete-photo" src="atletas.php?route=photo&amp;id=<?= (int) $row['id'] ?>&amp;v=<?= $escape($row['foto_version'] ?? '') ?>" alt="Foto de <?= $escape($row['nome']) ?>" width="72" height="72" loading="lazy"><?php else: ?><span class="athlete-photo athlete-photo-empty" aria-hidden="true">🏈</span><?php endif; ?>
@@ -47,6 +49,7 @@ $adminActiveModule = 'atletas';
                 <?php foreach ($positionSummary[(int) $row['id']] ?? [] as $assignment): ?><p class="athlete-assignment"><strong>· <?= $escape($assignment['side_nome']) ?>:</strong> <?= $escape($assignment['posicoes'] ?? '') ?></p><?php endforeach; ?>
             </div>
             <span class="athlete-status <?= $isActive ? 'is-active' : 'is-inactive' ?>"><?= $isActive ? 'Ativo' : 'Inativo' ?></span><a class="app-link" href="atletas.php?route=edit&amp;token=<?= $escape($row['edit_token']) ?>">Editar</a>
+            <a class="athlete-user-button <?= !$hasUser ? 'is-unlinked' : ($userIsActive ? 'is-user-active' : 'is-user-inactive') ?>" href="<?= $hasUser ? 'usuarios?id=' . (int) $row['usuario_id'] : 'usuarios?atleta_id=' . (int) $row['id'] ?>" title="<?= !$hasUser ? 'Vincular usuário ao atleta' : ($userIsActive ? 'Usuário ativo' : 'Usuário inativo') ?>" aria-label="<?= !$hasUser ? 'Vincular usuário ao atleta ' . $escape($row['nome']) : ($userIsActive ? 'Editar usuário ativo do atleta ' : 'Editar usuário inativo do atleta ') . $escape($row['nome']) ?>"><?= \App\Core\View::icon('user') ?><span>Usuário</span></a>
             <form method="post" action="atletas"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= (int) $row['id'] ?>"><button class="athlete-text-button" type="submit"><?= $isActive ? 'Desativar' : 'Ativar' ?></button></form>
         </article>
     <?php endforeach; ?>

@@ -32,6 +32,12 @@ declare(strict_types=1);
             <p>Gerencie atletas, vínculos e as configurações relacionadas ao cadastro esportivo.</p>
             <div class="admin-card-actions"><a class="button" href="atletas">Gerenciar atletas <span aria-hidden="true">→</span></a></div>
         </section><?php endif; ?>
+        <?php if (\App\Core\Modules::available('usuarios')): ?><section class="admin-card">
+            <p class="admin-card-kicker">CONTAS E VÍNCULOS</p>
+            <h2>Usuários</h2>
+            <p>Gerencie contas de acesso, status e vínculos opcionais com cadastros de atletas.</p>
+            <div class="admin-card-actions"><a class="button" href="usuarios">Gerenciar usuários <span aria-hidden="true">→</span></a></div>
+        </section><?php endif; ?>
         <?php if (\App\Core\Modules::available('eventos')): ?><section class="admin-card">
             <p class="admin-card-kicker">AGENDA DA EQUIPE</p>
             <h2>Eventos</h2>

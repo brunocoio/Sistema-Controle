@@ -12,12 +12,25 @@ use Throwable;
 
 final class AthleteModel
 {
+    public function userLinkSchemaAvailable(): bool
+    {
+        try {
+            $statement = Database::connection()->query(
+                "SELECT (SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() AND table_name='usuarios' AND column_name='cpf') = 1
+                    AND (SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() AND table_name='atletas' AND column_name='usuario_id') = 1"
+            );
+            return in_array($statement->fetchColumn(), [true, 1, '1', 't', 'true'], true);
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
     public function count(string $search, bool $activeOnly): int
     {
         $conditions = [];
-        if ($activeOnly) $conditions[] = 'ativo = TRUE';
-        if ($search !== '') $conditions[] = '(nome ILIKE :pattern_name OR apelido ILIKE :pattern_alias)';
-        $sql = 'SELECT count(*) FROM atletas' . ($conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions));
+        if ($activeOnly) $conditions[] = 'a.ativo = TRUE';
+        if ($search !== '') $conditions[] = '(a.nome ILIKE :pattern_name OR a.apelido ILIKE :pattern_alias)';
+        $sql = 'SELECT count(*) FROM atletas a' . ($conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions));
         $statement = Database::connection()->prepare($sql);
         if ($search !== '') {
             $pattern = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
@@ -31,13 +44,17 @@ final class AthleteModel
     public function list(string $search, bool $activeOnly, int $limit, int $offset): array
     {
         $conditions = [];
-        if ($activeOnly) $conditions[] = 'ativo = TRUE';
-        if ($search !== '') $conditions[] = '(nome ILIKE :pattern_name OR apelido ILIKE :pattern_alias)';
-        $sql = "SELECT id, nome, apelido, genero, data_nascimento, ativo, (foto IS NOT NULL) AS tem_foto,
-                       CASE WHEN foto IS NOT NULL THEN md5(encode(foto, 'base64')) END AS foto_version
-                FROM atletas";
+        if ($activeOnly) $conditions[] = 'a.ativo = TRUE';
+        if ($search !== '') $conditions[] = '(a.nome ILIKE :pattern_name OR a.apelido ILIKE :pattern_alias)';
+        $linkReady = $this->userLinkSchemaAvailable();
+        $linkColumns = $linkReady ? 'a.usuario_id, u.ativo AS usuario_ativo,' : 'NULL AS usuario_id, NULL AS usuario_ativo,';
+        $userJoin = $linkReady ? ' LEFT JOIN usuarios u ON u.id = a.usuario_id' : '';
+        $sql = "SELECT a.id, a.nome, a.apelido, a.genero, a.data_nascimento, a.ativo, $linkColumns
+                       (a.foto IS NOT NULL) AS tem_foto,
+                       CASE WHEN a.foto IS NOT NULL THEN md5(encode(a.foto, 'base64')) END AS foto_version
+                FROM atletas a$userJoin";
         if ($conditions !== []) $sql .= ' WHERE ' . implode(' AND ', $conditions);
-        $sql .= ' ORDER BY lower(nome), id LIMIT :limit OFFSET :offset';
+        $sql .= ' ORDER BY lower(a.nome), a.id LIMIT :limit OFFSET :offset';
         $statement = Database::connection()->prepare($sql);
         if ($search !== '') {
             $pattern = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
@@ -203,6 +220,19 @@ final class AthleteModel
         return is_array($row) ? $row : null;
     }
 
+    public function userOptions(?int $currentUserId = null, ?int $currentAthleteId = null): array
+    {
+        if (!$this->userLinkSchemaAvailable()) return [];
+        $statement = Database::connection()->prepare(
+            'SELECT u.id, u.nome, u.email, u.cpf, u.ativo FROM usuarios u
+             WHERE (u.ativo = TRUE OR u.id = :current_user)
+               AND NOT EXISTS (SELECT 1 FROM atletas linked WHERE linked.usuario_id=u.id AND linked.id <> :athlete_id)
+             ORDER BY lower(u.nome), u.id'
+        );
+        $statement->execute(['current_user' => $currentUserId, 'athlete_id' => $currentAthleteId]);
+        return $statement->fetchAll();
+    }
+
     public function save(array $data, int $userId, ?string $photoBase64, bool $removePhoto, array $assignments): int
     {
         $db = Database::connection();
@@ -210,6 +240,23 @@ final class AthleteModel
         $db->beginTransaction();
         try {
             $id = (int) ($data['id'] ?? 0);
+            $linkReady = $this->userLinkSchemaAvailable();
+            $accountUserId = (int) ($data['usuario_id'] ?? 0);
+            if ($linkReady) {
+                if ($accountUserId < 1) throw new RuntimeException('Todo atleta precisa estar vinculado a um usuário.');
+                $accountQuery = $db->prepare('SELECT id, email, cpf, ativo FROM usuarios WHERE id=:id FOR UPDATE');
+                $accountQuery->execute(['id' => $accountUserId]);
+                $account = $accountQuery->fetch();
+                if (!is_array($account)) throw new RuntimeException('Selecione um usuário existente para este atleta.');
+                $existingAthlete = $id > 0 ? $this->find($id) : null;
+                $isExistingLink = is_array($existingAthlete) && (int) ($existingAthlete['usuario_id'] ?? 0) === $accountUserId;
+                if (!in_array($account['ativo'], [true, 1, '1', 't', 'true'], true) && !$isExistingLink) {
+                    throw new RuntimeException('Não é possível vincular um usuário inativo a um atleta.');
+                }
+                if (strtolower((string) $account['email']) !== strtolower((string) $data['email']) || (string) $account['cpf'] !== (string) $data['cpf']) {
+                    throw new RuntimeException('O e-mail e o CPF do atleta devem ser iguais aos dados do usuário vinculado.');
+                }
+            }
             if ($id > 0) {
                 // Remove dependent rows first so edits also work with existing databases whose FK
                 // was created before the current ON DELETE CASCADE rule was introduced.
@@ -225,9 +272,11 @@ final class AthleteModel
                 $delete->execute(['id' => $id]);
                 $values = $this->athleteValues($data, $userId);
                 $values['id'] = $id;
+                $userLinkSql = $linkReady ? ', usuario_id=:usuario_id' : '';
+                if (!$linkReady) unset($values['usuario_id']);
                 $photoSql = $photoBase64 !== null ? "decode(:photo, 'base64')" : ($removePhoto ? 'NULL' : 'foto');
                 if ($photoBase64 !== null) $values['photo'] = $photoBase64;
-                $statement = $db->prepare("UPDATE atletas SET nome=:nome, apelido=:apelido, genero=:genero,
+                $statement = $db->prepare("UPDATE atletas SET nome=:nome, apelido=:apelido, genero=:genero$userLinkSql,
                     data_nascimento=:data_nascimento, celular=:celular, rg=:rg, cpf=:cpf, email=:email,
                     contato_emergencia_nome=:contato_emergencia_nome, contato_emergencia_celular=:contato_emergencia_celular,
                     contato_emergencia_parentesco=:contato_emergencia_parentesco, tipo_sanguineo=:tipo_sanguineo,
@@ -239,12 +288,15 @@ final class AthleteModel
             } else {
                 $values = $this->athleteValues($data, $userId);
                 $values['criado_por'] = $userId;
+                $userLinkFields = $linkReady ? ', usuario_id' : '';
+                $userLinkParams = $linkReady ? ', :usuario_id' : '';
+                if (!$linkReady) unset($values['usuario_id']);
                 $photoSql = $photoBase64 === null ? 'NULL' : "decode(:photo, 'base64')";
                 if ($photoBase64 !== null) $values['photo'] = $photoBase64;
-                $statement = $db->prepare("INSERT INTO atletas (nome, apelido, genero, data_nascimento, celular,
+                $statement = $db->prepare("INSERT INTO atletas (nome, apelido, genero$userLinkFields, data_nascimento, celular,
                     rg, cpf, email, contato_emergencia_nome, contato_emergencia_celular, contato_emergencia_parentesco,
                     tipo_sanguineo, alergias, foto, ativo, criado_por, atualizado_por)
-                    VALUES (:nome, :apelido, :genero, :data_nascimento, :celular,
+                    VALUES (:nome, :apelido, :genero$userLinkParams, :data_nascimento, :celular,
                     :rg, :cpf, :email, :contato_emergencia_nome, :contato_emergencia_celular, :contato_emergencia_parentesco,
                     :tipo_sanguineo, :alergias, $photoSql, :ativo, :criado_por, :atualizado_por) RETURNING id");
                 $stage = 'insert_athlete';
@@ -270,6 +322,7 @@ final class AthleteModel
         return [
             'nome' => $data['nome'], 'apelido' => $data['apelido'],
             'genero' => $data['genero'], 'data_nascimento' => $data['data_nascimento'],
+            'usuario_id' => (int) $data['usuario_id'],
             'celular' => $data['celular'], 'rg' => $data['rg'], 'cpf' => $data['cpf'], 'email' => $data['email'],
             'contato_emergencia_nome' => $data['contato_emergencia_nome'],
             'contato_emergencia_celular' => $data['contato_emergencia_celular'],

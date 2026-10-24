@@ -27,6 +27,14 @@
 .athlete-status{justify-self:end;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800}
 .athlete-status.is-active{background:#e8f5ee;color:#216b42}
 .athlete-status.is-inactive{background:#f1f2f4;color:#596273}
+.athlete-user-button{display:inline-flex;min-height:36px;align-items:center;justify-content:center;gap:7px;padding:0 11px;border:1px solid transparent;border-radius:6px;font-size:12px;font-weight:800;text-decoration:none;transition:background-color .15s ease,border-color .15s ease,color .15s ease}
+.athlete-user-button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.athlete-user-button.is-unlinked{border-color:#d8dde5;background:#f1f3f6;color:#596579}
+.athlete-user-button.is-unlinked:hover{background:#e5e9ef}
+.athlete-user-button.is-user-active{border-color:#bce4ca;background:#e8f7ed;color:#216c3e}
+.athlete-user-button.is-user-active:hover{background:#d8f0e0}
+.athlete-user-button.is-user-inactive{border-color:#f0c0bd;background:#fff0f0;color:#922b2b}
+.athlete-user-button.is-user-inactive:hover{background:#f9dede}
 .athlete-card form{margin:0}
 .athlete-text-button{padding:4px;border:0;background:transparent;color:#596273;font:inherit;font-size:12px;text-decoration:underline;cursor:pointer}
 .athlete-empty{display:grid;justify-items:center;gap:12px;padding:42px 22px;border:1px dashed #b9c6d8;border-radius:8px;background:#f8fafc;text-align:center}
@@ -86,6 +94,7 @@
 .athlete-role-group{min-width:0;margin:0;padding:10px 12px;border:1px solid #e1e5ec;border-radius:5px;background:#fff}
 .athlete-role-group legend{font-size:12px}
 .athlete-role-options{display:flex;flex-wrap:wrap;gap:8px}
+.athlete-user-migration-notice{padding:12px 14px;border-radius:6px;background:#fff7e5;color:#70551b;font-size:13px;line-height:1.55}
 .athlete-role-option{display:flex!important;align-items:center;gap:6px;padding:6px 9px;border:1px solid #e1e5ec;border-radius:999px;background:#f8fafc;font-size:12px!important;font-weight:600!important}
 .athlete-role-option input{width:16px!important;height:16px!important}
 .athlete-category-summary{margin-top:7px!important;padding-top:6px;border-top:1px solid #edf0f4}

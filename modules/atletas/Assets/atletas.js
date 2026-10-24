@@ -174,6 +174,15 @@
     }
 
     const genderField = document.getElementById('athlete-gender');
+    const athleteUserSelect = document.querySelector('[data-athlete-user-select]');
+    athleteUserSelect?.addEventListener('change', () => {
+        const option = athleteUserSelect.selectedOptions[0];
+        if (!option || !option.value) return;
+        const emailField = document.querySelector('[data-athlete-user-email]');
+        const cpfField = document.querySelector('[data-athlete-user-cpf]');
+        if (emailField instanceof HTMLInputElement) emailField.value = option.dataset.email || '';
+        if (cpfField instanceof HTMLInputElement) cpfField.value = option.dataset.cpf || '';
+    });
     if (!genderField) return;
 
     const categorySections = document.querySelectorAll('[data-category-gender]');

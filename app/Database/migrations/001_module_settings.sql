@@ -12,5 +12,5 @@ CREATE TABLE IF NOT EXISTS app_user_preferences (
 );
 
 INSERT INTO app_module_settings (module_key, enabled)
-VALUES ('atletas', TRUE), ('eventos', TRUE)
+VALUES ('atletas', TRUE), ('usuarios', TRUE), ('eventos', TRUE)
 ON CONFLICT (module_key) DO NOTHING;

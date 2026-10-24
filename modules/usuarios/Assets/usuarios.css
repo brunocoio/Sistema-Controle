@@ -1,0 +1,22 @@
+.users-page{max-width:1120px}
+.users-lead{max-width:760px;color:var(--muted);font-size:15px;line-height:1.7}
+.users-toolbar{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0}
+.users-list{display:grid;gap:12px}
+.users-card{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto auto;align-items:center;gap:14px;padding:18px;border:1px solid var(--line);border-radius:9px;background:#fff;transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease}
+.users-card:hover,.users-card:focus-within{border-color:#b8d2ee;background:#f8fbff;box-shadow:0 4px 14px #1a34500d}
+.users-card-main{min-width:0}
+.users-card-main h2{margin:0 0 5px;font-size:17px}
+.users-card-main p{margin:3px 0;color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+.users-athlete-link a{color:var(--blue);font-weight:700}
+.users-athlete-empty{font-style:italic}
+.users-role,.users-status{padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800;white-space:nowrap}
+.users-role{background:#eef1f5;color:#4d5869}
+.users-status.is-active{background:#e4f5eb;color:#207044}
+.users-status.is-inactive{background:#fce8e8;color:#9f3030}
+.users-card form{margin:0}
+.users-form{display:grid;gap:18px;max-width:860px}
+.users-form fieldset{display:grid;gap:14px}
+.users-linked-athlete{padding:13px 15px;border-radius:7px;background:#eef5fc;color:#394a61;line-height:1.6}
+.users-form-actions{display:flex;flex-wrap:wrap;gap:10px}
+@media(max-width:900px){.users-card{grid-template-columns:minmax(0,1fr) auto auto}.users-card-main{grid-column:1/-1}.users-role{grid-column:1}.users-card form{justify-self:start}}
+@media(max-width:560px){.users-page{width:min(100% - 32px,540px);margin:34px auto}.users-card{grid-template-columns:1fr 1fr;gap:10px;padding:14px}.users-card-main{grid-column:1/-1}.users-role{grid-column:auto}.users-status{justify-self:end}.users-card>a,.users-card form{width:100%}.users-card>a,.users-card form button{width:100%;justify-content:center}.users-toolbar>*{flex:1 1 auto;justify-content:center}}

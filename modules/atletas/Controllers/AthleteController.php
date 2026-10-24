@@ -17,6 +17,7 @@ final class AthleteController
 {
     private const MAX_UPLOAD = 5_242_880;
     private const BLOOD_TYPES = ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+    private bool $userLinkEnabled = false;
 
     public function handle(array $config): void
     {
@@ -25,6 +26,7 @@ final class AthleteController
             Session::start();
             $user = Auth::requireRole('admin');
             $model = new AthleteModel();
+            $this->userLinkEnabled = $model->userLinkSchemaAvailable();
             $legacyAction = $_GET['action'] ?? null;
             if ($_SERVER['REQUEST_METHOD'] === 'GET' && !array_key_exists('route', $_GET)
                 && is_string($legacyAction)) {
@@ -205,7 +207,7 @@ final class AthleteController
             http_response_code(400);
             exit('Ação inválida.');
         }
-        $data = $this->validate($_POST);
+        $data = $this->validate($_POST, $this->userLinkEnabled);
         $errors = $data['_errors'];
         unset($data['_errors']);
         $id = (int) ($data['id'] ?? 0);
@@ -261,7 +263,7 @@ final class AthleteController
         );
     }
 
-    private function validate(array $input): array
+    private function validate(array $input, bool $userLinkEnabled): array
     {
         $errors = [];
         $text = static function (string $key, int $max, bool $required = false) use ($input, &$errors): ?string {
@@ -303,11 +305,22 @@ final class AthleteController
             return $digits;
         };
         $email = strtolower((string) ($text('email', 254) ?? ''));
+        if ($userLinkEnabled && $email === '') $errors[] = 'Informe o e-mail do atleta para corresponder ao usuário vinculado.';
         if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) === false) $errors[] = 'E-mail inválido.';
         $cpfValue = $input['cpf'] ?? '';
         if (!is_string($cpfValue)) { $errors[] = 'CPF inválido.'; $cpfValue = ''; }
         $cpf = preg_replace('/\D+/', '', $cpfValue) ?? '';
-        if ($cpf !== '' && !$this->validCpf($cpf)) $errors[] = 'CPF inválido.';
+        if ($userLinkEnabled && !$this->validCpf($cpf)) $errors[] = 'Informe um CPF válido para o atleta.';
+        elseif ($cpf !== '' && !$this->validCpf($cpf)) $errors[] = 'CPF inválido.';
+        $userValue = $input['usuario_id'] ?? '';
+        if (!$userLinkEnabled) {
+            $linkedUserId = 0;
+        } elseif (!is_string($userValue) || preg_match('/\A[1-9]\d{0,17}\z/', $userValue) !== 1) {
+            $errors[] = 'Todo atleta precisa estar vinculado a um usuário ativo.';
+            $linkedUserId = 0;
+        } else {
+            $linkedUserId = (int) $userValue;
+        }
         $bloodValue = $input['tipo_sanguineo'] ?? '';
         $blood = is_string($bloodValue) ? $bloodValue : '';
         if (!in_array($blood, self::BLOOD_TYPES, true)) { $errors[] = 'Tipo sanguíneo inválido.'; $blood = ''; }
@@ -320,7 +333,7 @@ final class AthleteController
         $emergencyRelation = $text('contato_emergencia_parentesco', 60);
         return [
             'id' => $id, 'nome' => $text('nome', 120, true), 'apelido' => $text('apelido', 80),
-            'genero' => $gender, 'data_nascimento' => $birth, 'celular' => $phone($text('celular', 30)),
+            'genero' => $gender, 'usuario_id' => $linkedUserId, 'data_nascimento' => $birth, 'celular' => $phone($text('celular', 30)),
             'rg' => $text('rg', 30), 'cpf' => $cpf === '' ? null : $cpf, 'email' => $email === '' ? null : $email,
             'contato_emergencia_nome' => $emergencyName, 'contato_emergencia_celular' => $emergencyCell,
             'contato_emergencia_parentesco' => $emergencyRelation, 'tipo_sanguineo' => $blood ?: null,
@@ -543,6 +556,11 @@ final class AthleteController
         $escape = [View::class, 'escape']; $csrfToken = Csrf::token();
         $values = array_replace(is_array($athlete) ? $athlete : [], $values);
         $model = new AthleteModel();
+        $userLinkEnabled = $this->userLinkEnabled;
+        $userOptions = $userLinkEnabled ? $model->userOptions(
+            isset($values['usuario_id']) && (int) $values['usuario_id'] > 0 ? (int) $values['usuario_id'] : null,
+            $athlete !== null ? (int) $athlete['id'] : null
+        ) : [];
         $categoryOptions = $this->groupCategories($model->categoryCatalog());
         $roles = $model->roleCatalog();
         $numberOptions = [];
@@ -567,6 +585,7 @@ final class AthleteController
     private function listing(array $config, array $athletes, string $search, bool $activeOnly, int $pageSize, int $page, int $totalPages, int $totalAthletes, array $positionSummary, array $categorySummary): void
     {
         $escape = [View::class, 'escape']; $csrfToken = Csrf::token();
+        $userLinkEnabled = $this->userLinkEnabled;
         foreach ($athletes as &$athlete) {
             $athlete['edit_token'] = $this->createEditToken((int) $athlete['id']);
         }
