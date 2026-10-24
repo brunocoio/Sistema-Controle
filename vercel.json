@@ -22,8 +22,20 @@
       "destination": "/admin/meu-perfil.php"
     },
     {
+      "source": "/admin/modulos",
+      "destination": "/admin/modulos.php"
+    },
+    {
+      "source": "/admin/ui-preferences",
+      "destination": "/admin/ui-preferences.php"
+    },
+    {
       "source": "/admin/usuarios-novo",
       "destination": "/admin/usuarios.php?novo=1"
+    },
+    {
+      "source": "/admin/usuario-editar-:token",
+      "destination": "/admin/usuarios.php?user_token=:token"
     },
     {
       "source": "/admin/usuario-:id-editar",
@@ -58,12 +70,20 @@
       "destination": "/admin/atletas.php?route=edit&id=$1"
     },
     {
+      "source": "^/admin/atleta-([1-9][0-9]{0,17})-foto-v([a-f0-9]{32})$",
+      "destination": "/admin/atletas.php?route=photo&id=$1&v=$2"
+    },
+    {
       "source": "^/admin/atleta-([1-9][0-9]{0,17})-foto-v([a-f0-9]{32})\\.img$",
       "destination": "/admin/atletas.php?route=photo&id=$1&v=$2"
     },
     {
       "source": "^/admin/atleta-([1-9][0-9]{0,17})-foto-v([a-f0-9]{32})\\.jpg$",
       "destination": "/admin/atletas.php?route=photo&id=$1&v=$2"
+    },
+    {
+      "source": "/admin/foto-atleta-:token",
+      "destination": "/admin/atletas.php?route=photo&photo_token=:token"
     },
     {
       "source": "/admin/atleta-:id-foto",
@@ -78,12 +98,20 @@
       "destination": "/admin/eventos-novo.php"
     },
     {
+      "source": "/admin/evento-editar-:token",
+      "destination": "/admin/eventos.php?event_token=:token"
+    },
+    {
       "source": "^/admin/evento-([1-9][0-9]{0,17})-editar$",
       "destination": "/admin/eventos.php?route=edit&id=$1"
     },
     {
       "source": "/admin/eventos",
       "destination": "/admin/eventos.php"
+    },
+    {
+      "source": "/evento-imagem-:id",
+      "destination": "/eventos.php?image=:id"
     },
     {
       "source": "/eventos",

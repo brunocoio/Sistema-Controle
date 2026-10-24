@@ -26,7 +26,7 @@ $imageExists = in_array($values['tem_release_imagem'] ?? false, [true, 1, '1', '
 <main class="admin-content events-admin-content">
     <p class="eyebrow">GESTÃO ESPORTIVA</p><h1><?= $isEdit ? 'Editar evento' : 'Novo evento' ?></h1>
     <?php if ($errors !== []): ?><div class="app-toast is-error" data-app-toast role="alert" aria-live="assertive"><?= $escape(implode(' ', $errors)) ?></div><div class="app-errors" role="alert"><p>Confira os dados:</p><ul><?php foreach ($errors as $error): ?><li><?= $escape($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
-    <form class="event-form app-form" method="post" action="eventos.php" enctype="multipart/form-data">
+    <form class="event-form app-form" method="post" action="<?= $isEdit && is_string($editToken ?? null) && $editToken !== '' ? 'evento-editar-' . $escape($editToken) : 'eventos' ?>" enctype="multipart/form-data">
         <input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="save"><?php if ($isEdit): ?><input type="hidden" name="id" value="<?= $escape($value('id')) ?>"><?php endif; ?>
         <fieldset><legend>Informações do evento</legend><div class="app-field-grid">
             <label>Tipo<select name="tipo" required><?php foreach (['jogo'=>'Jogo','treino'=>'Treino','amistoso'=>'Amistoso','compromisso'=>'Compromisso'] as $key=>$label): ?><option value="<?= $key ?>" <?= $value('tipo', 'treino') === $key ? 'selected' : '' ?>><?= $label ?></option><?php endforeach; ?></select></label>
@@ -45,11 +45,11 @@ $imageExists = in_array($values['tem_release_imagem'] ?? false, [true, 1, '1', '
         </div></fieldset>
         <fieldset><legend>Release do evento</legend><label class="event-release-toggle"><input type="checkbox" name="release_ativo" value="1" data-release-toggle <?= $releaseEnabled ? 'checked' : '' ?>> Publicar um release junto ao evento</label>
             <div class="event-release-fields" data-release-fields <?= $releaseEnabled ? '' : 'hidden' ?>><label class="app-field">Texto do release<textarea name="release_texto" maxlength="12000" rows="7" placeholder="Conte os principais momentos do evento..."><?= $escape($value('release_texto')) ?></textarea></label>
-                <?php if ($imageExists && $isEdit): ?><div class="event-release-preview"><img src="../eventos.php?image=<?= (int) $values['id'] ?>" alt="Imagem atual do release" width="320" height="180"><label><input type="checkbox" name="remover_imagem" value="1"> Remover imagem atual</label></div><?php endif; ?>
+                <?php if ($imageExists && $isEdit): ?><div class="event-release-preview"><img src="../evento-imagem-<?= (int) $values['id'] ?>" alt="Imagem atual do release" width="320" height="180"><label><input type="checkbox" name="remover_imagem" value="1"> Remover imagem atual</label></div><?php endif; ?>
                 <label class="app-field">Imagem do release<input type="file" name="release_imagem" accept="image/jpeg,image/png,image/webp"><small>JPEG, PNG ou WebP; até 5 MB no envio e 1 MB após otimização.</small></label>
             </div>
         </fieldset>
-        <div class="event-actions"><button class="button-secondary" type="submit">Salvar evento</button><a class="app-link" href="eventos.php">Cancelar</a></div>
+        <div class="event-actions"><button class="button-secondary" type="submit">Salvar evento</button><a class="app-link" href="eventos">Cancelar</a></div>
     </form>
 </main>
 <script src="<?= $escape(\App\Core\View::assetUrl('../assets/js/app.js', $config)) ?>" defer></script>

@@ -111,7 +111,7 @@
             const body = new URLSearchParams({ _csrf: sidebarToggle.dataset.csrf || '', sidebar_collapsed: next ? '1' : '0' });
             let responseStatus = null;
             try {
-                const response = await fetch('ui-preferences.php', { method: 'POST', body, credentials: 'same-origin', headers: { Accept: 'application/json' } });
+                const response = await fetch('ui-preferences', { method: 'POST', body, credentials: 'same-origin', headers: { Accept: 'application/json' } });
                 responseStatus = response.status;
                 const result = await readJsonResponse(response);
                 if (!response.ok || !result.ok) throw new Error(result.message || 'Não foi possível salvar a preferência.');

@@ -24,7 +24,13 @@ final class EventController
             Session::start();
             $user = Auth::requireRole('admin');
             $model = new EventModel();
-            $route = $_GET['route'] ?? (isset($_GET['id']) ? 'edit' : 'list');
+            $eventToken = is_string($_GET['event_token'] ?? null) ? $_GET['event_token'] : '';
+            $tokenEventId = $eventToken !== '' ? $this->resolveEditToken($eventToken) : null;
+            if ($eventToken !== '' && $tokenEventId === null) {
+                http_response_code(404);
+                exit('Este link de edição expirou. Volte à lista de eventos e tente novamente.');
+            }
+            $route = $tokenEventId !== null ? 'edit' : ($_GET['route'] ?? (isset($_GET['id']) ? 'edit' : 'list'));
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!Csrf::verify($_POST['_csrf'] ?? null)) {
                     http_response_code(400);
@@ -40,7 +46,7 @@ final class EventController
                     }
                     $_SESSION['event_notice'] = ['message' => 'Evento excluído.', 'tone' => 'danger'];
                     session_write_close();
-                    header('Location: eventos.php', true, 303);
+                    header('Location: eventos', true, 303);
                     exit;
                 }
                 if ($action !== 'save') {
@@ -49,6 +55,10 @@ final class EventController
                 }
                 $idErrors = [];
                 $eventId = $this->submittedId($_POST, $idErrors);
+                if ($tokenEventId !== null && $eventId !== $tokenEventId) {
+                    http_response_code(404);
+                    exit('O evento deste link não corresponde ao cadastro enviado.');
+                }
                 $data = $this->validate($_POST);
                 $errors = $data['_errors'];
                 unset($data['_errors']);
@@ -84,7 +94,7 @@ final class EventController
                         'tone' => $eventId !== null ? 'warning' : 'success',
                     ];
                     session_write_close();
-                    header('Location: eventos.php', true, 303);
+                    header('Location: eventos', true, 303);
                     exit;
                 } catch (PDOException $exception) {
                     $state = (string) ($exception->errorInfo[0] ?? $exception->getCode());
@@ -95,7 +105,16 @@ final class EventController
             }
 
             if ($route === 'edit') {
-                $event = $model->find($this->id($_GET['id'] ?? null));
+                if ($tokenEventId === null && isset($_GET['id'])) {
+                    $legacyId = $this->id($_GET['id']);
+                    if ($model->find($legacyId) === null) {
+                        http_response_code(404);
+                        exit('Evento não encontrado.');
+                    }
+                    header('Location: evento-editar-' . $this->createEditToken($legacyId), true, 303);
+                    exit;
+                }
+                $event = $model->find($tokenEventId ?? $this->id($_GET['id'] ?? null));
                 if ($event === null) {
                     http_response_code(404);
                     exit('Evento não encontrado.');
@@ -114,6 +133,8 @@ final class EventController
             $escape = [View::class, 'escape'];
             $csrfToken = Csrf::token();
             $events = $model->all();
+            foreach ($events as &$event) $event['edit_token'] = $this->createEditToken((int) $event['id']);
+            unset($event);
             $notice = $_SESSION['event_notice'] ?? null;
             unset($_SESSION['event_notice']);
             $categories = $model->categories();
@@ -146,9 +167,32 @@ final class EventController
     {
         $escape = [View::class, 'escape'];
         $csrfToken = Csrf::token();
+        $editToken = (int) ($values['id'] ?? 0) > 0 ? $this->createEditToken((int) $values['id']) : '';
         $athletes = $model->athletes();
         $categories = $model->categories();
         require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'form.php';
+    }
+
+    private function createEditToken(int $eventId): string
+    {
+        $tokens = $_SESSION['event_edit_tokens'] ?? [];
+        if (!is_array($tokens)) $tokens = [];
+        $now = time();
+        $tokens = array_filter($tokens, static fn(mixed $entry): bool => is_array($entry) && (int) ($entry['expires'] ?? 0) > $now);
+        $token = bin2hex(random_bytes(16));
+        $tokens[$token] = ['id' => $eventId, 'expires' => $now + 7200];
+        while (count($tokens) > 500) array_shift($tokens);
+        $_SESSION['event_edit_tokens'] = $tokens;
+        return $token;
+    }
+
+    private function resolveEditToken(mixed $token): ?int
+    {
+        if (!is_string($token) || preg_match('/\A[a-f0-9]{32}\z/', $token) !== 1) return null;
+        $entry = $_SESSION['event_edit_tokens'][$token] ?? null;
+        if (!is_array($entry) || !is_int($entry['id'] ?? null)
+            || !is_int($entry['expires'] ?? null) || $entry['expires'] < time()) return null;
+        return $entry['id'];
     }
 
     private function validate(array $input): array

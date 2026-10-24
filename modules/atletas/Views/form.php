@@ -94,7 +94,7 @@ $hasPhoto = in_array($values['tem_foto'] ?? false, [true, 1, '1', 't', 'true'], 
             <label class="athlete-wide">Alergias / observações de saúde<textarea name="alergias" maxlength="2000" rows="4"><?= $escape($value('alergias')) ?></textarea></label>
         </div></fieldset>
         <fieldset><legend>Foto</legend><div class="app-field-grid">
-            <?php if ($hasPhoto): ?><div class="athlete-photo-preview"><img class="img-fluid" src="atletas.php?route=photo&amp;id=<?= (int) $values['id'] ?>&amp;v=<?= $escape($values['foto_version'] ?? '') ?>" alt="Foto atual do atleta" width="120" height="120"><label><input type="checkbox" name="remover_foto" value="1"> Remover foto atual</label></div><?php endif; ?>
+            <?php if ($hasPhoto): ?><div class="athlete-photo-preview"><img class="img-fluid" src="foto-atleta-<?= $escape($photoToken) ?>" alt="Foto atual do atleta" width="120" height="120"><label><input type="checkbox" name="remover_foto" value="1"> Remover foto atual</label></div><?php endif; ?>
             <label class="athlete-wide">Enviar ou substituir foto<input type="file" name="foto" accept="image/jpeg,image/png,image/webp"><small>JPEG, PNG ou WebP. Máximo 5 MB e 6 megapixels. A imagem será redimensionada e convertida para WebP quando disponivel, com JPEG como alternativa.</small></label>
         </div></fieldset>
         <div class="athlete-actions"><button class="app-button" type="submit">Salvar cadastro</button><a class="app-link" href="atletas">Cancelar</a></div>

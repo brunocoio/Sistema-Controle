@@ -24,10 +24,10 @@ $adminActiveModule = 'usuarios';
         <?php $functionLabels = array_map(static fn(string $function): string => $function === 'staff' ? 'Staff' : 'Atleta', is_array($row['funcoes']) ? $row['funcoes'] : []); ?>
         <article class="users-card">
             <div class="users-card-main"><h2><?= $escape($row['nome']) ?></h2><p><?= $escape($row['email']) ?> <span>·</span> CPF <?= $row['cpf'] !== null ? $escape(substr((string) $row['cpf'], 0, 3) . '.***.***-' . substr((string) $row['cpf'], -2)) : 'não informado' ?></p>
-                <?php if ($row['atleta_id'] !== null): ?><p class="users-athlete-link">Atleta vinculado: <a href="atleta-<?= (int) $row['atleta_id'] ?>-editar"><?= $escape($row['atleta_nome']) ?></a></p><?php else: ?><p class="users-athlete-empty">Sem vínculo com atleta</p><?php endif; ?>
+                <?php if ($row['atleta_id'] !== null): ?><p class="users-athlete-link">Atleta vinculado: <a href="editar-<?= $escape($row['athlete_edit_token']) ?>"><?= $escape($row['atleta_nome']) ?></a></p><?php else: ?><p class="users-athlete-empty">Sem vínculo com atleta</p><?php endif; ?>
             </div>
             <span class="users-role"><?= $escape($functionLabels === [] ? ucfirst((string) $row['perfil']) : implode(' · ', $functionLabels)) ?></span><span class="users-status <?= $isActive ? 'is-active' : 'is-inactive' ?>"><?= $isActive ? 'Ativo' : 'Inativo' ?></span>
-            <a class="app-button app-button-outline" href="usuario-<?= (int) $row['id'] ?>-editar">Editar</a>
+            <a class="app-button app-button-outline" href="usuario-editar-<?= $escape($row['edit_token']) ?>">Editar</a>
             <?php if ((int) $row['id'] !== (int) ($_SESSION['user']['id'] ?? 0)): ?><form method="post" action="usuarios"><input type="hidden" name="_csrf" value="<?= $escape($csrfToken) ?>"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= (int) $row['id'] ?>"><button class="app-button app-button-subtle" type="submit"><?= $isActive ? 'Desativar' : 'Ativar' ?></button></form><?php else: ?><span class="users-current-account">Sua conta</span><?php endif; ?>
         </article>
     <?php endforeach; ?>

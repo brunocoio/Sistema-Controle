@@ -15,7 +15,7 @@ $adminSidebarActive = is_string($adminActiveModule ?? null) ? $adminActiveModule
             <a class="admin-sidebar-link <?= $adminSidebarActive === $moduleKey ? 'is-active' : '' ?>" href="<?= $escape($module['admin_href']) ?>" title="<?= $escape($module['title']) ?>" aria-label="<?= $escape($module['title']) ?>"><?= \App\Core\View::icon($module['icon']) ?><span class="admin-sidebar-label"><?= $escape($module['title']) ?></span></a>
         <?php endforeach; endif; ?>
         <a class="admin-sidebar-link <?= $adminSidebarActive === 'profile' ? 'is-active' : '' ?>" href="meu-perfil" title="Meu perfil" aria-label="Meu perfil"><?= \App\Core\View::icon('user') ?><span class="admin-sidebar-label">Meu perfil</span></a>
-        <?php if (($adminSidebarUser['role'] ?? '') === 'admin'): ?><div class="admin-sidebar-separator"></div><a class="admin-sidebar-link <?= $adminSidebarActive === 'system' ? 'is-active' : '' ?>" href="modulos.php" title="Controle de módulos" aria-label="Controle de módulos"><?= \App\Core\View::icon('shield') ?><span class="admin-sidebar-label">Controle de módulos</span></a><?php endif; ?>
+        <?php if (($adminSidebarUser['role'] ?? '') === 'admin'): ?><div class="admin-sidebar-separator"></div><a class="admin-sidebar-link <?= $adminSidebarActive === 'system' ? 'is-active' : '' ?>" href="modulos" title="Controle de módulos" aria-label="Controle de módulos"><?= \App\Core\View::icon('shield') ?><span class="admin-sidebar-label">Controle de módulos</span></a><?php endif; ?>
     </nav>
 </aside>
 <button type="button" class="admin-sidebar-backdrop" data-admin-sidebar-backdrop aria-label="Fechar menu"></button>

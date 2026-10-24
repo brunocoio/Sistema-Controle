@@ -143,16 +143,6 @@
     if (searchForm instanceof HTMLFormElement) {
         const searchInput = searchForm.querySelector('input[name="q"]');
         let searchTimer;
-        searchForm.addEventListener('submit', (event) => {
-            event.preventDefault();
-            const state = JSON.stringify(Object.fromEntries(new FormData(searchForm).entries()));
-            const bytes = new TextEncoder().encode(state);
-            const token = btoa(String.fromCharCode(...bytes))
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_')
-                .replace(/=+$/, '');
-            window.location.assign(new URL(`atletas.php?state=${encodeURIComponent(token)}`, window.location.href));
-        });
         const initialSearch = searchInput ? searchInput.value.trim() : '';
         const cleanFilterRoute = new URLSearchParams(window.location.search).has('state')
             || /\/admin\/atletas-filtros-[A-Za-z0-9_-]+$/.test(window.location.pathname);

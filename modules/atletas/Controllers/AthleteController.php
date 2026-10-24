@@ -54,6 +54,20 @@ final class AthleteController
                 ], true)) {
                 $action = 'categories';
             }
+            if ($action === 'list' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? null) === 'filter') {
+                if (!Csrf::verify($_POST['_csrf'] ?? null)) {
+                    http_response_code(400);
+                    exit('A sessão do filtro expirou. Atualize a página e tente novamente.');
+                }
+                $filterState = [
+                    'q' => mb_substr(trim(is_string($_POST['q'] ?? null) ? $_POST['q'] : ''), 0, 100, 'UTF-8'),
+                    'status' => ($_POST['status'] ?? 'todos') === 'ativos' ? 'ativos' : 'todos',
+                    'per_page' => in_array($_POST['per_page'] ?? null, ['10', '25', '50', '100'], true) ? (string) $_POST['per_page'] : '10',
+                    'page' => '1',
+                ];
+                header('Location: ' . $this->adminPath('atletas-filtros-' . $this->createFilterToken($filterState)), true, 303);
+                exit;
+            }
             $hasLegacyFilters = array_key_exists('q', $_GET)
                 || array_key_exists('per_page', $_GET)
                 || array_key_exists('page', $_GET)
@@ -77,13 +91,15 @@ final class AthleteController
                     'page' => is_string($_GET['page'] ?? null)
                         && preg_match('/\A[1-9]\d{0,8}\z/', $_GET['page']) === 1 ? $_GET['page'] : '1',
                 ];
-                $legacyJson = json_encode($legacyState, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-                $legacyToken = rtrim(strtr(base64_encode($legacyJson), '+/', '-_'), '=');
+                $legacyToken = $this->createFilterToken($legacyState);
                 header('Location: ' . $this->adminPath('atletas-filtros-' . $legacyToken), true, 303);
                 exit;
             }
             if ($action === 'photo') {
-                $this->photo($model, $this->id($_GET['id'] ?? null));
+                $photoToken = is_string($_GET['photo_token'] ?? null) ? $_GET['photo_token'] : '';
+                $photoId = $photoToken !== '' ? $this->resolvePhotoToken($photoToken) : null;
+                if ($photoToken !== '' && $photoId === null) { http_response_code(404); exit; }
+                $this->photo($model, $photoId ?? $this->id($_GET['id'] ?? null));
                 return;
             }
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -129,18 +145,30 @@ final class AthleteController
                         || preg_match('/\A[A-Za-z0-9_-]+\z/', $stateToken) !== 1) {
                         throw new RuntimeException('Filtro invalido.');
                     }
-                    $encodedState = strtr($stateToken, '-_', '+/');
-                    $encodedState .= str_repeat('=', (4 - strlen($encodedState) % 4) % 4);
-                    $jsonState = base64_decode($encodedState, true);
-                    if (!is_string($jsonState)) throw new RuntimeException('Filtro invalido.');
-                    $decodedState = json_decode($jsonState, false, 8, JSON_THROW_ON_ERROR);
-                    if (!$decodedState instanceof \stdClass) throw new RuntimeException('Filtro invalido.');
-                    $filterState = get_object_vars($decodedState);
+                    $storedFilter = preg_match('/\A[a-f0-9]{32}\z/', $stateToken) === 1
+                        ? ($_SESSION['athlete_filter_tokens'][$stateToken] ?? null) : null;
+                    if (is_array($storedFilter) && is_array($storedFilter['state'] ?? null)
+                        && is_int($storedFilter['expires'] ?? null) && $storedFilter['expires'] >= time()) {
+                        $filterState = $storedFilter['state'];
+                    } else {
+                        if (preg_match('/\A[a-f0-9]{32}\z/', $stateToken) === 1) throw new RuntimeException('Filtro invalido.');
+                        $encodedState = strtr($stateToken, '-_', '+/');
+                        $encodedState .= str_repeat('=', (4 - strlen($encodedState) % 4) % 4);
+                        $jsonState = base64_decode($encodedState, true);
+                        if (!is_string($jsonState)) throw new RuntimeException('Filtro invalido.');
+                        $decodedState = json_decode($jsonState, false, 8, JSON_THROW_ON_ERROR);
+                        if (!$decodedState instanceof \stdClass) throw new RuntimeException('Filtro invalido.');
+                        $filterState = get_object_vars($decodedState);
+                    }
                     if (array_diff(array_keys($filterState), ['q', 'status', 'per_page', 'page']) !== []) {
                         throw new RuntimeException('Filtro invalido.');
                     }
                     foreach ($filterState as $filterValue) {
                         if (!is_string($filterValue)) throw new RuntimeException('Filtro invalido.');
+                    }
+                    if (preg_match('/\A[a-f0-9]{32}\z/', $stateToken) !== 1) {
+                        header('Location: ' . $this->adminPath('atletas-filtros-' . $this->createFilterToken($filterState)), true, 303);
+                        exit;
                     }
                     $query = array_replace($query, $filterState);
                 } catch (Throwable) {
@@ -563,6 +591,8 @@ final class AthleteController
         ) : [];
         $categoryOptions = $this->groupCategories($model->categoryCatalog());
         $roles = $model->roleCatalog();
+        $photoToken = in_array($values['tem_foto'] ?? false, [true, 1, '1', 't', 'true'], true)
+            ? $this->createPhotoToken((int) ($values['id'] ?? 0), (string) ($values['foto_version'] ?? '')) : '';
         $numberOptions = [];
         $athleteId = $athlete !== null ? (int) $athlete['id'] : null;
         foreach ($categoryOptions as $category) {
@@ -585,10 +615,20 @@ final class AthleteController
     private function listing(array $config, array $athletes, string $search, bool $activeOnly, int $pageSize, int $page, int $totalPages, int $totalAthletes, array $positionSummary, array $categorySummary): void
     {
         $escape = [View::class, 'escape']; $csrfToken = Csrf::token();
+        $stateUrl = function (int $targetPage) use ($search, $activeOnly, $pageSize): string {
+            $token = $this->createFilterToken([
+                'q' => $search, 'status' => $activeOnly ? 'ativos' : 'todos',
+                'per_page' => (string) $pageSize, 'page' => (string) $targetPage,
+            ]);
+            return 'atletas-filtros-' . $token;
+        };
         $userLinkEnabled = $this->userLinkEnabled;
         foreach ($athletes as &$athlete) {
             $athlete['edit_token'] = $this->createEditToken((int) $athlete['id']);
             $athlete['user_link_token'] = !empty($athlete['usuario_id']) ? '' : $this->createUserLinkToken((int) $athlete['id']);
+            $athlete['user_edit_token'] = empty($athlete['usuario_id']) ? '' : $this->createUserEditToken((int) $athlete['usuario_id']);
+            $athlete['photo_token'] = in_array($athlete['tem_foto'] ?? false, [true, 1, '1', 't', 'true'], true)
+                ? $this->createPhotoToken((int) $athlete['id'], (string) ($athlete['foto_version'] ?? '')) : '';
         }
         unset($athlete);
         $notice = $_SESSION['athlete_notice'] ?? null;
@@ -672,6 +712,65 @@ final class AthleteController
         while (count($tokens) > 500) array_shift($tokens);
         $_SESSION['athlete_user_link_tokens'] = $tokens;
         return $token;
+    }
+
+    private function createUserEditToken(int $userId): string
+    {
+        $tokens = $_SESSION['user_edit_tokens'] ?? [];
+        if (!is_array($tokens)) $tokens = [];
+        $now = time();
+        $tokens = array_filter($tokens, static fn(mixed $entry): bool => is_array($entry) && (int) ($entry['expires'] ?? 0) > $now);
+        $token = bin2hex(random_bytes(16));
+        $tokens[$token] = ['id' => $userId, 'expires' => $now + 7200];
+        while (count($tokens) > 500) array_shift($tokens);
+        $_SESSION['user_edit_tokens'] = $tokens;
+        return $token;
+    }
+
+    private function createPhotoToken(int $athleteId, string $version): string
+    {
+        $now = time();
+        $tokens = $_SESSION['athlete_photo_tokens'] ?? [];
+        $lookup = $_SESSION['athlete_photo_token_lookup'] ?? [];
+        if (!is_array($tokens)) $tokens = [];
+        if (!is_array($lookup)) $lookup = [];
+        $tokens = array_filter($tokens, static fn(mixed $entry): bool => is_array($entry) && (int) ($entry['expires'] ?? 0) > $now);
+        $lookupKey = $athleteId . ':' . $version;
+        $existingToken = $lookup[$lookupKey] ?? null;
+        if (is_string($existingToken) && isset($tokens[$existingToken])) {
+            $_SESSION['athlete_photo_tokens'] = $tokens;
+            return $existingToken;
+        }
+        $token = bin2hex(random_bytes(16));
+        $tokens[$token] = ['id' => $athleteId, 'expires' => $now + 7200];
+        while (count($tokens) > 500) array_shift($tokens);
+        $lookup = array_filter($lookup, static fn(mixed $knownToken): bool => is_string($knownToken) && isset($tokens[$knownToken]));
+        $lookup[$lookupKey] = $token;
+        $_SESSION['athlete_photo_tokens'] = $tokens;
+        $_SESSION['athlete_photo_token_lookup'] = $lookup;
+        return $token;
+    }
+
+    private function createFilterToken(array $state): string
+    {
+        $now = time();
+        $tokens = $_SESSION['athlete_filter_tokens'] ?? [];
+        if (!is_array($tokens)) $tokens = [];
+        $tokens = array_filter($tokens, static fn(mixed $entry): bool => is_array($entry) && (int) ($entry['expires'] ?? 0) > $now);
+        $token = bin2hex(random_bytes(16));
+        $tokens[$token] = ['state' => $state, 'expires' => $now + 7200];
+        while (count($tokens) > 500) array_shift($tokens);
+        $_SESSION['athlete_filter_tokens'] = $tokens;
+        return $token;
+    }
+
+    private function resolvePhotoToken(string $token): ?int
+    {
+        if (preg_match('/\A[a-f0-9]{32}\z/', $token) !== 1) return null;
+        $entry = $_SESSION['athlete_photo_tokens'][$token] ?? null;
+        if (!is_array($entry) || !is_int($entry['id'] ?? null)
+            || !is_int($entry['expires'] ?? null) || $entry['expires'] < time()) return null;
+        return $entry['id'];
     }
 
     private function resolveEditToken(mixed $token): ?int

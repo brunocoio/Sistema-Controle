@@ -14,7 +14,9 @@ $getValue = static fn(string $key, mixed $default = ''): string => (string) ($va
 $cpfDigits = preg_replace('/\D+/', '', $getValue('cpf')) ?? '';
 $passwordValue = $getValue('password', $isEdit ? '' : $cpfDigits);
 $linkToken = is_string($linkToken ?? null) ? $linkToken : '';
-$formAction = $isSelfProfile ? 'meu-perfil' : ($isEdit ? 'usuario-' . (int) $values['id'] . '-editar' : ($athleteId > 0 ? ($linkToken !== '' ? 'usuario-atleta-' . $linkToken : 'usuario-atleta-' . $athleteId . '-novo') : 'usuarios-novo'));
+$userEditToken = is_string($userEditToken ?? null) ? $userEditToken : '';
+$athleteEditToken = is_string($athleteEditToken ?? null) ? $athleteEditToken : '';
+$formAction = $isSelfProfile ? 'meu-perfil' : ($isEdit ? ($userEditToken !== '' ? 'usuario-editar-' . $userEditToken : 'usuario-' . (int) $values['id'] . '-editar') : ($athleteId > 0 ? ($linkToken !== '' ? 'usuario-atleta-' . $linkToken : 'usuario-atleta-' . $athleteId . '-novo') : 'usuarios-novo'));
 ?>
 <!doctype html>
 <html lang="pt-BR"><head>
@@ -45,7 +47,7 @@ $formAction = $isSelfProfile ? 'meu-perfil' : ($isEdit ? 'usuario-' . (int) $val
 <?php if (!$isSelfProfile): ?><label>Status<select name="ativo"><option value="1" <?= $isActive ? 'selected' : '' ?>>Ativo</option><option value="0" <?= !$isActive ? 'selected' : '' ?>>Inativo</option></select><small>Usuário inativo não poderá entrar no sistema.</small></label><?php endif; ?>
 </div></fieldset>
 <fieldset><legend>Vínculo com atleta</legend>
-<?php if ($athlete !== null): ?><div class="users-linked-athlete"><strong><?= $escape($athlete['nome']) ?></strong><p>E-mail: <?= $escape($athlete['email'] ?: 'não informado') ?></p><p>CPF: <?= $escape($athlete['cpf'] ?: 'não informado') ?></p><small>Este vínculo é fixo nesta tela. <?php if (empty($athlete['email']) || empty($athlete['cpf'])): ?>Preencha e salve e-mail e CPF no <a href="atleta-<?= (int) $athlete['id'] ?>-editar">cadastro do atleta</a> antes de continuar.<?php else: ?>Para corrigir a associação, use o cadastro do atleta.<?php endif; ?></small></div>
+<?php if ($athlete !== null): ?><div class="users-linked-athlete"><strong><?= $escape($athlete['nome']) ?></strong><p>E-mail: <?= $escape($athlete['email'] ?: 'não informado') ?></p><p>CPF: <?= $escape($athlete['cpf'] ?: 'não informado') ?></p><small>Este vínculo é fixo nesta tela. <?php if (empty($athlete['email']) || empty($athlete['cpf'])): ?>Preencha e salve e-mail e CPF no <a href="editar-<?= $escape($athleteEditToken) ?>">cadastro do atleta</a> antes de continuar.<?php else: ?>Para corrigir a associação, use o cadastro do atleta.<?php endif; ?></small></div>
 <?php elseif ($linkedAthleteId > 0): ?><div class="users-linked-athlete"><strong><?= $escape($user['atleta_nome']) ?></strong><p>E-mail: <?= $escape($getValue('email')) ?></p><p>CPF: <?= $escape($getValue('cpf')) ?></p><small>O vínculo é mantido para preservar o histórico e não pode ser trocado nesta tela.</small></div>
 <?php else: ?><p class="users-linked-athlete">Sem vínculo com atleta. Para vincular esta conta, use o botão “Usuário” no cadastro do atleta.</p><?php endif; ?>
 </fieldset>

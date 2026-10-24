@@ -36,7 +36,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     'message' => ($enabled ? 'Módulo ativado: ' : 'Módulo desativado: ') . (\App\Core\Modules::catalog()[$moduleKey]['title'] ?? $moduleKey) . '.',
                 ];
                 session_write_close();
-                header('Location: modulos.php', true, 303);
+                header('Location: modulos', true, 303);
                 exit;
             } catch (Throwable $exception) {
                 error_log('Falha ao alterar módulo: ' . get_class($exception));

@@ -25,6 +25,12 @@ final class UserController
             $model = new UserModel();
             $escape = [View::class, 'escape'];
             $csrfToken = Csrf::token();
+            $userEditToken = is_string($_GET['user_token'] ?? null) ? $_GET['user_token'] : '';
+            $tokenUserId = $userEditToken !== '' ? $this->resolveUserEditToken($userEditToken) : null;
+            if ($userEditToken !== '' && $tokenUserId === null) {
+                $this->renderError($config, 404, 'Este link de edição expirou. Volte à lista e tente novamente.');
+                return;
+            }
             if (!$model->schemaAvailable()) {
                 if ($isSystemRoot) {
                     require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'unavailable.php';
@@ -53,7 +59,12 @@ final class UserController
                     http_response_code(400);
                     exit('Ação inválida.');
                 }
-                $id = $profileOnly ? (int) $loggedUser['id'] : $this->optionalId($_POST['id'] ?? '');
+                $postedId = $this->optionalId($_POST['id'] ?? '');
+                if (!$profileOnly && $tokenUserId !== null && $postedId !== $tokenUserId) {
+                    $this->renderError($config, 404, 'O usuário deste link não corresponde ao cadastro enviado.');
+                    return;
+                }
+                $id = $profileOnly ? (int) $loggedUser['id'] : ($tokenUserId ?? $postedId);
                 $currentUser = $id > 0 ? $model->find($id) : null;
                 if ($profileOnly && $currentUser === null) { $this->renderError($config, 404, 'Usuário não encontrado.'); return; }
                 $athleteId = $profileOnly
@@ -90,6 +101,7 @@ final class UserController
                     $values['reset_password_to_cpf'] = $resetPasswordToCpf;
                     $user = $id > 0 ? $model->find($id) : null;
                     $athlete = $athleteId !== null ? $model->athlete($athleteId) : null;
+                    $athleteEditToken = is_array($athlete) ? $this->createAthleteEditToken((int) $athlete['id']) : '';
                     require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'form.php';
                     return;
                 }
@@ -117,6 +129,7 @@ final class UserController
                 $values['reset_password_to_cpf'] = $resetPasswordToCpf;
                 $user = $id > 0 ? $model->find($id) : null;
                 $athlete = $athleteId !== null ? $model->athlete($athleteId) : null;
+                $athleteEditToken = is_array($athlete) ? $this->createAthleteEditToken((int) $athlete['id']) : '';
                 require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'form.php';
                 return;
             }
@@ -125,6 +138,7 @@ final class UserController
                 if ($user === null) { $this->renderError($config, 404, 'Usuário não encontrado.'); return; }
                 $id = (int) $loggedUser['id'];
                 $athlete = $user['atleta_id'] === null ? null : $model->athlete((int) $user['atleta_id']);
+                $athleteEditToken = is_array($athlete) ? $this->createAthleteEditToken((int) $athlete['id']) : '';
                 $values = $user;
                 $notice = $_SESSION['user_admin_notice'] ?? null;
                 unset($_SESSION['user_admin_notice']);
@@ -142,12 +156,21 @@ final class UserController
                 $athleteValue = (string) $tokenAthleteId;
                 $idValue = null;
             }
+            if ($idValue !== null && $tokenUserId === null) {
+                $legacyId = $this->id($idValue);
+                if ($model->find($legacyId) === null) { $this->renderError($config, 404, 'Usuário não encontrado.'); return; }
+                $userEditToken = $this->createUserEditToken($legacyId);
+                header('Location: usuario-editar-' . $userEditToken, true, 303);
+                exit;
+            }
+            if ($tokenUserId !== null) $idValue = (string) $tokenUserId;
             if ($idValue !== null || $athleteValue !== null || ($_GET['novo'] ?? null) === '1') {
                 $id = $idValue === null ? 0 : $this->id($idValue);
                 $athleteId = $athleteValue === null ? 0 : $this->id($athleteValue);
                 $user = $id > 0 ? $model->find($id) : null;
                 if ($id > 0 && $user === null) { $this->renderError($config, 404, 'Usuário não encontrado.'); return; }
                 $athlete = $athleteId > 0 ? $model->athlete($athleteId) : null;
+                $athleteEditToken = is_array($athlete) ? $this->createAthleteEditToken((int) $athlete['id']) : '';
                 if ($athleteId > 0 && $athlete === null) { $this->renderError($config, 404, 'Atleta não encontrado.'); return; }
                 if (is_array($athlete) && $athlete['usuario_id'] !== null && ($user === null || (int) $athlete['usuario_id'] !== $id)) {
                     $this->renderError($config, 409, 'Este atleta já possui um usuário vinculado.');
@@ -165,6 +188,12 @@ final class UserController
                 return;
             }
             $users = $model->all();
+            foreach ($users as &$listedUser) {
+                $listedUser['edit_token'] = $this->createUserEditToken((int) $listedUser['id']);
+                $listedUser['athlete_edit_token'] = isset($listedUser['atleta_id'])
+                    ? $this->createAthleteEditToken((int) $listedUser['atleta_id']) : '';
+            }
+            unset($listedUser);
             $notice = $_SESSION['user_admin_notice'] ?? null;
             unset($_SESSION['user_admin_notice']);
             require dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Views' . DIRECTORY_SEPARATOR . 'index.php';
@@ -227,6 +256,41 @@ final class UserController
         if (!is_array($entry) || !is_int($entry['athlete_id'] ?? null)
             || !is_int($entry['expires'] ?? null) || $entry['expires'] < time()) return null;
         return $entry['athlete_id'];
+    }
+
+    private function createUserEditToken(int $userId): string
+    {
+        $tokens = $_SESSION['user_edit_tokens'] ?? [];
+        if (!is_array($tokens)) $tokens = [];
+        $now = time();
+        $tokens = array_filter($tokens, static fn(mixed $entry): bool => is_array($entry) && (int) ($entry['expires'] ?? 0) > $now);
+        $token = bin2hex(random_bytes(16));
+        $tokens[$token] = ['id' => $userId, 'expires' => $now + 7200];
+        while (count($tokens) > 500) array_shift($tokens);
+        $_SESSION['user_edit_tokens'] = $tokens;
+        return $token;
+    }
+
+    private function resolveUserEditToken(mixed $token): ?int
+    {
+        if (!is_string($token) || preg_match('/\A[a-f0-9]{32}\z/', $token) !== 1) return null;
+        $entry = $_SESSION['user_edit_tokens'][$token] ?? null;
+        if (!is_array($entry) || !is_int($entry['id'] ?? null)
+            || !is_int($entry['expires'] ?? null) || $entry['expires'] < time()) return null;
+        return $entry['id'];
+    }
+
+    private function createAthleteEditToken(int $athleteId): string
+    {
+        $tokens = $_SESSION['athlete_edit_tokens'] ?? [];
+        if (!is_array($tokens)) $tokens = [];
+        $now = time();
+        $tokens = array_filter($tokens, static fn(mixed $entry): bool => is_array($entry) && (int) ($entry['expires'] ?? 0) > $now);
+        $token = bin2hex(random_bytes(16));
+        $tokens[$token] = ['id' => $athleteId, 'expires' => $now + 3600];
+        while (count($tokens) > 500) array_shift($tokens);
+        $_SESSION['athlete_edit_tokens'] = $tokens;
+        return $token;
     }
 
     private function renderError(array $config, int $status, string $message): void

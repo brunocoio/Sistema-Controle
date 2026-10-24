@@ -25,7 +25,7 @@ foreach ($events as $event) {
                             <?php if ($event['atleta_destaque']): ?><p class="event-highlight">Destaque: <strong><?= $escape($event['atleta_destaque']) ?></strong></p><?php endif; ?>
                         <?php endif; ?>
                         <p class="event-attendance"><span aria-hidden="true">✓</span> <?= (int) $event['confirmados'] ?> <?= (int) $event['confirmados'] === 1 ? 'presença confirmada' : 'presenças confirmadas' ?></p>
-                        <?php if ($releaseEnabled && ($event['release_texto'] || $hasReleaseImage)): ?><div class="event-release"><?php if ($event['release_texto']): ?><p><?= nl2br($escape($event['release_texto'])) ?></p><?php endif; ?><?php if ($hasReleaseImage): ?><img src="eventos.php?image=<?= (int) $event['id'] ?>" alt="Imagem do evento <?= $escape($event['titulo']) ?>" width="900" height="506" loading="lazy" decoding="async"><?php endif; ?></div><?php endif; ?>
+                        <?php if ($releaseEnabled && ($event['release_texto'] || $hasReleaseImage)): ?><div class="event-release"><?php if ($event['release_texto']): ?><p><?= nl2br($escape($event['release_texto'])) ?></p><?php endif; ?><?php if ($hasReleaseImage): ?><img src="evento-imagem-<?= (int) $event['id'] ?>" alt="Imagem do evento <?= $escape($event['titulo']) ?>" width="900" height="506" loading="lazy" decoding="async"><?php endif; ?></div><?php endif; ?>
                     </div>
                 </article>
             <?php endforeach; ?>
