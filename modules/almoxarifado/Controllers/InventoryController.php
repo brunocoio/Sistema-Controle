@@ -22,7 +22,11 @@ final class InventoryController
             Session::start();
             $user = Auth::requireRole('admin','staff','atleta');
             $path = parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
-            $screen = is_string($path) && rtrim($path,'/') === '/admin/meus-equipamentos' ? 'personal' : 'manager';
+            $requestedScreen = $_GET['screen'] ?? null;
+            $screen = $requestedScreen === 'personal'
+                || (is_string($path) && rtrim($path,'/') === '/admin/meus-equipamentos')
+                ? 'personal'
+                : 'manager';
             $role = (string)($user['role'] ?? '');
             $isManager = in_array($role,['admin','staff'],true);
             if ($screen === 'manager' && !$isManager) {
