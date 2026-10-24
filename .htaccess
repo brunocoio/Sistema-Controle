@@ -32,5 +32,7 @@ RewriteRule ^admin/evento-([1-9][0-9]*)-editar$ admin/eventos.php?route=edit&id=
 RewriteRule ^admin/financeiro$ admin/financeiro.php [QSA,L]
 RewriteRule ^admin/financeiro-equipe$ admin/financeiro.php?screen=team [QSA,L]
 RewriteRule ^admin/meu-financeiro$ admin/financeiro.php?screen=account [QSA,L]
+RewriteRule ^admin/almoxarifado$ admin/almoxarifado.php [QSA,L]
+RewriteRule ^admin/meus-equipamentos$ admin/almoxarifado.php?screen=personal [QSA,L]
 RewriteRule ^evento-imagem-([1-9][0-9]*)$ eventos.php?image=$1 [QSA,L]
 RewriteRule ^eventos$ eventos.php [QSA,L]

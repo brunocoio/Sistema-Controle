@@ -11,6 +11,7 @@ final class Modules
         'usuarios' => ['title' => 'Usuários', 'description' => 'Contas de acesso e vínculos com atletas.', 'admin_href' => 'usuarios', 'icon' => 'users', 'toggleable' => true],
         'eventos' => ['title' => 'Eventos', 'description' => 'Jogos, treinos, amistosos e compromissos.', 'admin_href' => 'eventos', 'icon' => 'events', 'toggleable' => true],
         'financeiro' => ['title' => 'Financeiro', 'description' => 'Contribuições, pagamentos e prestação de contas.', 'admin_href' => 'financeiro', 'icon' => 'finance', 'toggleable' => true],
+        'almoxarifado' => ['title' => 'Almoxarifado', 'description' => 'Inventário, empréstimos e conferências de materiais.', 'admin_href' => 'almoxarifado', 'icon' => 'inventory', 'toggleable' => true],
     ];
 
     private const FILES = [
@@ -61,6 +62,16 @@ final class Modules
             'modules/financeiro/Views/unavailable.php',
             'modules/financeiro/Assets/financeiro.css',
             'modules/financeiro/Database/migrations/001_financeiro.sql',
+        ],
+        'almoxarifado' => [
+            'admin/almoxarifado.php',
+            'modules/almoxarifado/Controllers/InventoryController.php',
+            'modules/almoxarifado/Models/InventoryModel.php',
+            'modules/almoxarifado/Views/manager.php',
+            'modules/almoxarifado/Views/personal.php',
+            'modules/almoxarifado/Views/unavailable.php',
+            'modules/almoxarifado/Assets/almoxarifado.css',
+            'modules/almoxarifado/Database/migrations/001_almoxarifado.sql',
         ],
     ];
 

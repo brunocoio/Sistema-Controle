@@ -32,6 +32,7 @@ final class View
             'finance' => '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="15" rx="2"/><path d="M3 10h18m-4 5h2"/><circle cx="7" cy="4" r="2"/><path d="M7 3v2"/></svg>',
             'my-finance' => '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="18" cy="16" r="4"/><path d="M18 14v4m-1.3-2.8h2.6"/></svg>',
             'finance-team' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18M5 17v-5m5 5V7m5 10v-8m5 8V4"/><path d="m4 9 6-5 5 3 5-4"/></svg>',
+            'inventory' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v14H3zM3 7l2-4h14l2 4M8 11h8M8 15h5"/><path d="M7 3v4m10-4v4"/></svg>',
             'modules' => '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>',
             'menu' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
             'shield' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></svg>',

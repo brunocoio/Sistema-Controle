@@ -122,6 +122,14 @@
       "destination": "/admin/financeiro.php?screen=account"
     },
     {
+      "source": "/admin/almoxarifado",
+      "destination": "/admin/almoxarifado.php"
+    },
+    {
+      "source": "/admin/meus-equipamentos",
+      "destination": "/admin/almoxarifado.php?screen=personal"
+    },
+    {
       "source": "/evento-imagem-:id",
       "destination": "/eventos.php?image=:id"
     },
